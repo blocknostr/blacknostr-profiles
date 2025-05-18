@@ -71,8 +71,8 @@ const WalletManager = ({ ecosystem }: WalletManagerProps) => {
         errorMsg = "Invalid Ethereum address format";
       }
     } else if (ecosystem === "alephium") {
-      // Simple Alephium address validation (starts with 1)
-      if (!newAddress.startsWith('1')) {
+      // Updated Alephium address validation (starts with 1 or "r" followed by base58 chars)
+      if (!(newAddress.startsWith('1') || newAddress.startsWith('r'))) {
         isValid = false;
         errorMsg = "Invalid Alephium address format";
       }
@@ -162,6 +162,6 @@ const WalletManager = ({ ecosystem }: WalletManagerProps) => {
       )}
     </div>
   );
-}
+};
 
 export default WalletManager;

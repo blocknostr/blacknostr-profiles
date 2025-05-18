@@ -64,7 +64,12 @@ export const fetchTokenList = async (): Promise<Record<string, TokenMetadata>> =
   
   try {
     console.log("Fetching token list from:", TOKEN_LIST_URL);
-    const response = await fetch(TOKEN_LIST_URL);
+    const response = await fetch(TOKEN_LIST_URL, {
+      headers: {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache'
+      }
+    });
     
     if (!response.ok) {
       throw new Error(`Failed to fetch token list: ${response.status} ${response.statusText}`);
@@ -103,6 +108,22 @@ export const fetchTokenList = async (): Promise<Record<string, TokenMetadata>> =
     return tokenMap;
   } catch (error) {
     console.error("Error fetching token metadata:", error);
+    
+    // Return a basic token map with just ALPH if we can't fetch
+    if (!tokenCache) {
+      const basicTokenMap: Record<string, TokenMetadata> = {
+        "ALPH": {
+          id: "ALPH",
+          name: "Alephium",
+          symbol: "ALPH",
+          decimals: 18,
+          logoURI: "https://raw.githubusercontent.com/alephium/token-list/master/logos/alephium.png",
+          coingeckoId: "alephium"
+        }
+      };
+      tokenCache = basicTokenMap;
+    }
+    
     // Return empty cache or existing cache if available
     return tokenCache || {};
   }
@@ -112,8 +133,13 @@ export const fetchTokenList = async (): Promise<Record<string, TokenMetadata>> =
  * Gets metadata for a specific token ID
  */
 export const getTokenMetadata = async (tokenId: string): Promise<TokenMetadata | undefined> => {
-  const tokenMap = await fetchTokenList();
-  return tokenMap[tokenId];
+  try {
+    const tokenMap = await fetchTokenList();
+    return tokenMap[tokenId] || getFallbackTokenData(tokenId);
+  } catch (error) {
+    console.error(`Error getting metadata for token ${tokenId}:`, error);
+    return getFallbackTokenData(tokenId);
+  }
 };
 
 /**
@@ -139,6 +165,14 @@ export const getAllCoinGeckoIds = (): string[] => {
  */
 export const formatTokenAmount = (amount: string | number, decimals: number = 0): string => {
   try {
+    if (!amount) return "0";
+    
+    // Handle string amounts that might not be valid numbers
+    if (typeof amount === 'string' && !/^\d+$/.test(amount)) {
+      console.warn(`Invalid amount format: ${amount}`);
+      return "0";
+    }
+    
     // Convert to BigInt to handle large numbers accurately
     const bigAmount = typeof amount === 'string' ? BigInt(amount) : BigInt(Math.floor(Number(amount)));
     
