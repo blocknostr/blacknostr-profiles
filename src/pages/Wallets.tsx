@@ -19,10 +19,12 @@ const Wallets = () => {
   
   // Check if Alephium wallet is connected
   const AlephiumWalletDetector = () => {
-    const { connectionStatus, address } = useWallet();
+    const { connectionStatus, account } = useWallet();
     
     useEffect(() => {
-      if (connectionStatus === 'connected' && address) {
+      if (connectionStatus === 'connected' && account) {
+        const walletAddress = account.address;
+        
         // If Alephium wallet is connected, set the selected ecosystem to Alephium
         setSelectedEcosystem("alephium");
         
@@ -31,8 +33,8 @@ const Wallets = () => {
         const wallets = savedWallets ? JSON.parse(savedWallets) : [];
         
         // Check if wallet is already in the list
-        if (!wallets.some((w: any) => w.address === address)) {
-          const newWallet = { id: Date.now().toString(), address: address };
+        if (!wallets.some((w: any) => w.address === walletAddress)) {
+          const newWallet = { id: Date.now().toString(), address: walletAddress };
           const updatedWallets = [...wallets, newWallet];
           localStorage.setItem('alephium_wallets', JSON.stringify(updatedWallets));
           
@@ -42,7 +44,7 @@ const Wallets = () => {
           });
         }
       }
-    }, [connectionStatus, address]);
+    }, [connectionStatus, account]);
     
     return null; // This component doesn't render anything
   };
