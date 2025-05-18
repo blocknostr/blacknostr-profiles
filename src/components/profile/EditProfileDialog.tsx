@@ -32,7 +32,7 @@ interface EditProfileDialogProps {
 }
 
 const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ open, onOpenChange }) => {
-  const { profile, updateProfile } = useNostr();
+  const { profile, updateProfile, isAuthenticated } = useNostr();
   
   // Initialize the form with current profile values
   const form = useForm<ProfileFormValues>({
@@ -67,6 +67,16 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ open, onOpenChang
 
   const onSubmit = async (values: ProfileFormValues) => {
     if (!profile) return;
+    
+    // Check authentication before proceeding
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to update your profile",
+        variant: "destructive"
+      });
+      return;
+    }
     
     // Create updated profile object
     const updatedProfile: NostrProfile = {
@@ -219,11 +229,23 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ open, onOpenChang
             </div>
             
             <DialogFooter>
-              <Button type="submit" className="mr-2">Save Changes</Button>
+              <Button 
+                type="submit" 
+                className="mr-2"
+                disabled={!isAuthenticated}
+              >
+                Save Changes
+              </Button>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
             </DialogFooter>
+            
+            {!isAuthenticated && (
+              <div className="text-center text-destructive text-sm">
+                You must be logged in to update your profile
+              </div>
+            )}
           </form>
         </Form>
       </DialogContent>

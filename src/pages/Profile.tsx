@@ -5,7 +5,8 @@ import MainLayout from "@/components/layout/MainLayout";
 import NoteFeed from "@/components/feed/NoteFeed";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Link, Calendar, MapPin, User, Edit } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Link, Calendar, MapPin, User, Edit, CheckCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditProfileDialog from "@/components/profile/EditProfileDialog";
 
@@ -82,7 +83,15 @@ const Profile = () => {
                   )}
                 </div>
                 <div className="pt-2">
-                  <h1 className="text-xl font-bold">{profile?.displayName || "Anonymous"}</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl font-bold">{profile?.displayName || "Anonymous"}</h1>
+                    {profile?.nip05 && (
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <CheckCircle className="h-3 w-3" />
+                        <span>{profile.nip05}</span>
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">{profile?.npub || ""}</p>
                 </div>
               </div>
@@ -103,12 +112,6 @@ const Profile = () => {
                   <a href={profile.website} target="_blank" rel="noopener noreferrer" className="hover:underline">
                     {profile.website.replace(/^https?:\/\//, '')}
                   </a>
-                </div>
-              )}
-              {profile?.nip05 && (
-                <div className="flex items-center">
-                  <User className="h-4 w-4 mr-1" />
-                  <span>{profile.nip05}</span>
                 </div>
               )}
               {/* Placeholder data for demo */}
