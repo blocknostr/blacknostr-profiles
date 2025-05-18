@@ -58,7 +58,7 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="h-screen w-80 p-4 border-r border-border dark:bg-nostr-dark dark:border-white/10 overflow-y-auto">
+    <div className="h-screen w-80 p-4 border-r border-border dark:bg-nostr-dark dark:border-white/10 fixed overflow-y-auto">
       {/* Logo and Theme Toggle */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
