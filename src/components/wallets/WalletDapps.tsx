@@ -56,7 +56,7 @@ const WalletDapps = ({ ecosystem }: WalletDappsProps) => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {currentDapps.map((dapp, index) => (
-          <Card key={index} className="dark:bg-nostr-cardBg dark:border-white/20">
+          <Card key={index} className="dark:bg-nostr-dark dark:border-white/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-medium">{dapp.name}</CardTitle>
             </CardHeader>

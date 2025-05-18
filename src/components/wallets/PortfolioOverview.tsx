@@ -72,7 +72,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Price Card */}
-        <Card className="dark:bg-nostr-cardBg dark:border-white/20">
+        <Card className="dark:bg-nostr-dark dark:border-white/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-medium">Current Price</CardTitle>
           </CardHeader>
@@ -103,7 +103,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         </Card>
 
         {/* Portfolio Value Card */}
-        <Card className="dark:bg-nostr-cardBg dark:border-white/20">
+        <Card className="dark:bg-nostr-dark dark:border-white/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-medium">Portfolio Value</CardTitle>
           </CardHeader>
@@ -117,7 +117,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
       </div>
 
       {/* Market Data */}
-      <Card className="dark:bg-nostr-cardBg dark:border-white/20">
+      <Card className="dark:bg-nostr-dark dark:border-white/20">
         <CardHeader>
           <CardTitle className="text-lg font-medium">
             <div className="flex items-center">
@@ -160,7 +160,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
       </Card>
 
       {/* Portfolio Breakdown */}
-      <Card className="dark:bg-nostr-cardBg dark:border-white/20">
+      <Card className="dark:bg-nostr-dark dark:border-white/20">
         <CardHeader>
           <CardTitle className="text-lg font-medium">Portfolio Breakdown</CardTitle>
         </CardHeader>

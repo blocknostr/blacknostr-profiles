@@ -23,10 +23,10 @@ const Wallets = () => {
           
           {/* Ecosystem Selector */}
           <Select value={selectedEcosystem} onValueChange={(value) => setSelectedEcosystem(value as Ecosystem)}>
-            <SelectTrigger className="w-[180px] dark:bg-black dark:border-white/20">
+            <SelectTrigger className="w-[180px] dark:bg-nostr-dark dark:border-white/20">
               <SelectValue placeholder="Select Blockchain" />
             </SelectTrigger>
-            <SelectContent className="dark:bg-black dark:border-white/20">
+            <SelectContent className="dark:bg-nostr-cardBg dark:border-white/20">
               <SelectItem value="bitcoin">Bitcoin</SelectItem>
               <SelectItem value="ethereum">Ethereum</SelectItem>
               <SelectItem value="alephium">Alephium</SelectItem>
@@ -34,7 +34,7 @@ const Wallets = () => {
           </Select>
         </div>
 
-        <Card className="dark:bg-black dark:border-white/20">
+        <Card className="dark:bg-nostr-cardBg dark:border-white/20">
           <CardHeader>
             <CardTitle className="text-lg font-medium">
               {selectedEcosystem === "bitcoin" ? "Bitcoin" : 
@@ -46,10 +46,11 @@ const Wallets = () => {
             <WalletManager ecosystem={selectedEcosystem} />
             
             <Tabs defaultValue="portfolio" className="mt-6">
-              <TabsList className="dark:bg-white/10 dark:text-white mb-4">
-                <TabsTrigger value="portfolio">My Portfolio</TabsTrigger>
-                <TabsTrigger value="dapps">My Dapps</TabsTrigger>
-                {selectedEcosystem === "alephium" && <TabsTrigger value="alephium">My Alephium</TabsTrigger>}
+              <TabsList className="dark:bg-nostr-dark dark:text-white mb-4">
+                <TabsTrigger value="portfolio" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">My Portfolio</TabsTrigger>
+                <TabsTrigger value="dapps" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">My Dapps</TabsTrigger>
+                {selectedEcosystem === "alephium" && 
+                 <TabsTrigger value="alephium" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">My Alephium</TabsTrigger>}
               </TabsList>
               
               <TabsContent value="portfolio">

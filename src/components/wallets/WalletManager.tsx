@@ -123,12 +123,12 @@ const WalletManager = ({ ecosystem }: WalletManagerProps) => {
           placeholder={`Enter ${ecosystem} wallet address...`}
           value={newAddress}
           onChange={(e) => setNewAddress(e.target.value)}
-          className="flex-1 dark:bg-black dark:border-white/20"
+          className="flex-1 dark:bg-nostr-dark dark:border-white/20"
         />
         <Button 
           onClick={addWallet} 
           disabled={wallets.length >= MAX_WALLETS}
-          className="dark:bg-nostr-blue dark:hover:bg-nostr-blue/90"
+          className="dark:bg-nostr-blue dark:hover:bg-nostr-blue/90 dark:text-white"
         >
           <Plus className="h-4 w-4 mr-1" /> Add
         </Button>
@@ -137,7 +137,7 @@ const WalletManager = ({ ecosystem }: WalletManagerProps) => {
       {wallets.length > 0 ? (
         <div className="space-y-2 mt-4">
           {wallets.map((wallet) => (
-            <Card key={wallet.id} className="dark:bg-black dark:border-white/20">
+            <Card key={wallet.id} className="dark:bg-nostr-dark dark:border-white/20">
               <CardContent className="p-3 flex items-center justify-between">
                 <div className="flex items-center gap-2 overflow-hidden">
                   <Wallet className="h-4 w-4 text-nostr-blue" />
