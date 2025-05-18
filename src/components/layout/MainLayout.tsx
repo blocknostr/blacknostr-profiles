@@ -19,7 +19,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen w-full bg-background">
         {/* Mobile sidebar toggle */}
         <div className="md:hidden fixed top-4 left-4 z-20">
           <Button
@@ -47,8 +47,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </div>
 
         {/* Main content */}
-        <div className="flex-grow max-w-3xl mx-auto px-4 py-6 md:px-6 md:ml-64">
-          {children}
+        <div className="flex-grow px-4 py-6 md:px-6 md:ml-64 font-medium overflow-y-auto">
+          <div className="max-w-3xl mx-auto">
+            {children}
+          </div>
         </div>
 
         {/* Right sidebar */}
