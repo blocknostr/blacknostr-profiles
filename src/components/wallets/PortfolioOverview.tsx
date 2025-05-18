@@ -1,826 +1,258 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowUp, ArrowDown, TrendingUp, Coins, Wallet, DollarSign, Wifi, WifiOff } from 'lucide-react';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { fetchCoinPrice, fetchTokenBalance } from '@/lib/coinGeckoAPI';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  getTokenMetadata, 
-  getFallbackTokenData, 
-  formatTokenAmount, 
-  fetchTokenList,
-  fetchTokenTransactions,
-  TokenMetadata
-} from '@/lib/tokenMetadata';
-import { tokenMappings, getCoinGeckoId } from '@/lib/tokenMappings';
+
+import { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Wallet, FilePlus, Trash, Circle, TrendingUp } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useNostr } from "@/contexts/NostrContext";
+import { toast } from "@/components/ui/use-toast";
+import { Dialog } from "@/components/ui/dialog";
+import tokenMetadata from "@/lib/tokenMetadata";
 
 interface PortfolioOverviewProps {
   ecosystem: string;
 }
 
-interface AssetPrice {
-  price: number;
-  change24h: number;
-  symbol: string;
-  name: string;
-}
-
-interface TokenBalance {
+interface WalletData {
   id: string;
-  symbol: string;
-  name: string;
-  amount: number;
-  value: number;
-  color: string;
-  logoURI?: string;
-  transactions?: any[];
-  priceSource?: 'market' | 'estimate';
-  decimals: number;
-  rawAmount?: string;
+  address: string;
+  balance?: number;
+  tokens?: Array<{ symbol: string; balance: number; value: number }>;
 }
-
-// Enhanced palette with more distinct colors
-const tokenColors = [
-  "#8B5CF6", // Vivid Purple (primary)
-  "#10B981", // Emerald Green
-  "#F97316", // Bright Orange
-  "#0EA5E9", // Ocean Blue
-  "#EC4899", // Pink
-  "#D946EF", // Magenta
-  "#6366F1", // Indigo
-  "#F59E0B", // Amber
-  "#14B8A6", // Teal
-  "#EF4444", // Red
-  "#3B82F6", // Blue
-  "#FB7185", // Rose
-];
-
-// Demo price history data (in a real app this would come from an API)
-const generatePriceHistoryData = (length = 30, baseValue = 100, volatility = 0.05) => {
-  const data = [];
-  let currentValue = baseValue;
-  
-  for (let i = 0; i < length; i++) {
-    // Add some randomness to create a realistic-looking chart
-    const change = currentValue * volatility * (Math.random() - 0.5);
-    currentValue += change;
-    
-    const date = new Date();
-    date.setDate(date.getDate() - (length - i - 1));
-    
-    data.push({
-      date: date.toISOString().split('T')[0],
-      value: currentValue
-    });
-  }
-  
-  return data;
-};
 
 const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
-  const [assetPrices, setAssetPrices] = useState<AssetPrice | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [walletAddresses, setWalletAddresses] = useState<string[]>([]);
-  const [tokens, setTokens] = useState<TokenBalance[]>([]);
-  const [totalTokenCount, setTotalTokenCount] = useState(0);
-  const [portfolioValue, setPortfolioValue] = useState(0);
-  const [tokenMetadataLoaded, setTokenMetadataLoaded] = useState(false);
-  const [apiStatus, setApiStatus] = useState<{isLive: boolean; lastChecked: Date}>({
-    isLive: false,
-    lastChecked: new Date()
-  });
-  const [selectedTimeframe, setSelectedTimeframe] = useState('7d');
-  const [chartType, setChartType] = useState<'line' | 'pie'>('line');
-
-  // Generate price history data for the demo
-  const priceHistoryData = useMemo(() => {
-    return generatePriceHistoryData();
-  }, []);
-
-  // CoinGecko IDs for each ecosystem
-  const coinIds: Record<string, string> = {
-    bitcoin: 'bitcoin',
-    ethereum: 'ethereum',
-    alephium: 'alephium',
-  };
-
-  // Reset the component state when ecosystem changes
+  const { isAuthenticated } = useNostr();
+  const [wallets, setWallets] = useState<WalletData[]>([]);
+  const [totalValue, setTotalValue] = useState<number>(0);
+  const [walletsLoaded, setWalletsLoaded] = useState(false);
+  const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false);
+  const [walletToDelete, setWalletToDelete] = useState<string | null>(null);
+  
+  // Load wallets from localStorage based on the selected ecosystem
   useEffect(() => {
-    // Clear previous state when ecosystem changes
-    setWalletAddresses([]);
-    setTokens([]);
-    setTotalTokenCount(0);
-    setPortfolioValue(0);
-    setAssetPrices(null);
-    setTokenMetadataLoaded(false);
-    setLoading(true);
-    
-    // Load new addresses for the current ecosystem
-    loadAddressesFromStorage();
+    loadWallets();
   }, [ecosystem]);
 
-  // Load wallet addresses from localStorage for the specific ecosystem
-  const loadAddressesFromStorage = () => {
-    const savedWallets = localStorage.getItem(`${ecosystem}_wallets`);
-    if (savedWallets) {
-      try {
-        const parsedWallets = JSON.parse(savedWallets);
-        if (parsedWallets && parsedWallets.length > 0) {
-          // Use only wallet addresses for the current ecosystem
-          const addresses = parsedWallets.map((wallet: any) => wallet.address);
-          console.log(`Found ${addresses.length} ${ecosystem} wallet addresses:`, addresses);
-          setWalletAddresses(addresses);
-          return;
-        }
-      } catch (err) {
-        console.error(`Error parsing ${ecosystem} wallet addresses:`, err);
-      }
+  const loadWallets = () => {
+    try {
+      const savedWallets = localStorage.getItem(`${ecosystem}_wallets`);
+      const walletData = savedWallets ? JSON.parse(savedWallets) : [];
+      
+      // Add mock balance and tokens data for demonstration
+      const walletsWithData = walletData.map((wallet: WalletData) => ({
+        ...wallet,
+        balance: wallet.balance || generateRandomBalance(),
+        tokens: wallet.tokens || generateRandomTokens(ecosystem),
+      }));
+
+      setWallets(walletsWithData);
+      
+      // Calculate total portfolio value
+      const total = walletsWithData.reduce((sum: number, wallet: WalletData) => {
+        const tokenValue = (wallet.tokens || []).reduce(
+          (tokenSum: number, token) => tokenSum + token.value, 
+          0
+        );
+        return sum + (wallet.balance || 0) + tokenValue;
+      }, 0);
+      
+      setTotalValue(total);
+      setWalletsLoaded(true);
+    } catch (error) {
+      console.error("Error loading wallets:", error);
+      setWallets([]);
+      setTotalValue(0);
+      setWalletsLoaded(true);
     }
-    
-    // If no wallets found, use demo addresses specific to this ecosystem
-    const demoAddresses: Record<string, string[]> = {
-      bitcoin: ['bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'],
-      ethereum: ['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'],
-      alephium: ['raLUPHsewjm1iA2kBzRKXB2ntbj3j4puxbVvsZD8iK3r'],
-    };
-    
-    setWalletAddresses(demoAddresses[ecosystem] || []);
   };
 
-  // Load asset prices from CoinGecko for the specific ecosystem
-  useEffect(() => {
-    const loadAssetPrice = async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        const coinId = coinIds[ecosystem];
-        
-        if (!coinId) {
-          throw new Error(`Unknown ecosystem: ${ecosystem}`);
-        }
-        
-        const priceData = await fetchCoinPrice(coinId);
-        
-        if (priceData) {
-          setAssetPrices({
-            price: priceData.current_price,
-            change24h: priceData.price_change_percentage_24h,
-            symbol: priceData.symbol.toUpperCase(),
-            name: priceData.name
-          });
-          setApiStatus({isLive: true, lastChecked: new Date()});
-        } else {
-          throw new Error('Failed to fetch price data');
-        }
-      } catch (err) {
-        console.error(`Error fetching price data for ${ecosystem}:`, err);
-        setError(`Failed to load price data for ${ecosystem}. Please try again later.`);
-        setApiStatus({isLive: false, lastChecked: new Date()});
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Generate random balance for mock data
+  const generateRandomBalance = () => {
+    return parseFloat((Math.random() * 5 + 0.1).toFixed(3));
+  };
 
-    if (ecosystem) {
-      loadAssetPrice();
-      
-      // Refresh prices every 60 seconds
-      const interval = setInterval(loadAssetPrice, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [ecosystem]);
-
-  // Fetch token balances when wallet address changes for the specific ecosystem
-  useEffect(() => {
-    const fetchBalances = async () => {
-      if (walletAddresses.length === 0 || !ecosystem) return;
-      
-      try {
-        // Pre-fetch all token metadata for better performance
-        const allTokenMetadata = await fetchTokenList();
-        
-        let allTokens: TokenBalance[] = [];
-        let totalPortfolioValue = 0;
-        let rawTokenCount = 0;
-        
-        console.log(`Fetching balances for ${walletAddresses.length} ${ecosystem} wallets`);
-        
-        for (const walletAddress of walletAddresses) {
-          console.log(`Fetching balance for ${ecosystem} wallet: ${walletAddress}`);
-          const result = await fetchTokenBalance(ecosystem, walletAddress);
-          
-          if (result && !result.error) {
-            // Process main token
-            if (result.balance) {
-              // Get correct decimals from token mappings if available
-              const mainTokenDecimals = ecosystem === 'alephium' && tokenMappings.ALPH ? 
-                tokenMappings.ALPH.decimals : 18;
-              
-              const formattedAmount = formatTokenAmount(result.balance || 0, mainTokenDecimals);
-              
-              const mainToken: TokenBalance = {
-                id: coinIds[ecosystem] || ecosystem,
-                symbol: assetPrices?.symbol || ecosystem.toUpperCase(),
-                name: assetPrices?.name || ecosystem,
-                amount: parseFloat(formattedAmount),
-                decimals: mainTokenDecimals,
-                rawAmount: result.balance?.toString(),
-                value: parseFloat((parseFloat(formattedAmount) * (assetPrices?.price || 0)).toFixed(2)),
-                color: tokenColors[0],
-                logoURI: ecosystem === 'alephium' ? 'https://raw.githubusercontent.com/alephium/token-list/master/logos/alephium.png' : undefined,
-                priceSource: 'market'
-              };
-              
-              // Increment raw token count
-              rawTokenCount++;
-              
-              // Get transactions for main token (sample data for demo)
-              const mainTokenTxs = await fetchTokenTransactions(mainToken.id, 1, 5);
-              mainToken.transactions = mainTokenTxs;
-              
-              // Check if we already have this token
-              const existingTokenIndex = allTokens.findIndex(t => t.id === mainToken.id);
-              if (existingTokenIndex >= 0) {
-                // Update token with cumulative amount and value
-                allTokens[existingTokenIndex].amount += mainToken.amount;
-                allTokens[existingTokenIndex].value += mainToken.value;
-              } else {
-                allTokens.push(mainToken);
-              }
-              
-              totalPortfolioValue += mainToken.value;
-            }
-            
-            // Process other tokens only for the current ecosystem
-            if (ecosystem === 'alephium' && result.tokenBalances && result.tokenBalances.length > 0) {
-              console.log(`Found ${result.tokenBalances.length} tokens for wallet ${walletAddress}`);
-              rawTokenCount += result.tokenBalances.length;
-              
-              for (const token of result.tokenBalances) {
-                // Get token metadata or use fallback
-                const tokenId = token.id || `unknown`;
-                let metadata = allTokenMetadata[tokenId] || getFallbackTokenData(tokenId);
-                
-                // Try to enhance metadata with our mappings
-                if (tokenMappings[tokenId]) {
-                  metadata = {
-                    ...metadata,
-                    name: tokenMappings[tokenId].name,
-                    symbol: tokenMappings[tokenId].symbol,
-                    decimals: tokenMappings[tokenId].decimals
-                  };
-                }
-                
-                // Get price - use mappings for known tokens or fallback to estimates
-                let tokenPrice = 0;
-                let priceSource: 'market' | 'estimate' = 'estimate';
-                
-                if (tokenMappings[tokenId]?.isStablecoin) {
-                  tokenPrice = 1.0; // Stablecoins are $1
-                  priceSource = 'market';
-                } else if (tokenMappings[tokenId]?.coingeckoId) {
-                  // For known tokens, we could implement a price fetch here
-                  // This is a placeholder for actual price API integration
-                  tokenPrice = Math.random() * 5 + 1; // Simulated price for mapped tokens
-                  priceSource = 'market';
-                } else if (metadata.price) {
-                  tokenPrice = metadata.price;
-                  priceSource = 'market';
-                } else {
-                  // Generate a realistic price based on token type
-                  tokenPrice = Math.random() * 3 + (metadata.symbol.includes('LP') ? 10 : 0.05);
-                }
-                
-                // Make sure we use the correct number of decimals
-                const tokenDecimals = metadata.decimals || 18;
-                const formattedAmount = formatTokenAmount(token.amount || 0, tokenDecimals);
-                const amount = parseFloat(formattedAmount);
-                const value = parseFloat((amount * tokenPrice).toFixed(2));
-                
-                // Get transactions for this token
-                const tokenTxs = await fetchTokenTransactions(tokenId, 1, 5);
-                
-                const tokenBalance: TokenBalance = {
-                  id: tokenId,
-                  symbol: metadata.symbol,
-                  name: metadata.name,
-                  amount: amount,
-                  decimals: tokenDecimals,
-                  rawAmount: token.amount?.toString(),
-                  value: value,
-                  color: tokenColors[(allTokens.length + 1) % tokenColors.length],
-                  logoURI: metadata.logoURI,
-                  transactions: tokenTxs,
-                  priceSource: priceSource
-                };
-                
-                // Check if we already have this token
-                const existingTokenIndex = allTokens.findIndex(t => t.id === tokenId);
-                if (existingTokenIndex >= 0) {
-                  // Update token with cumulative amount and value
-                  allTokens[existingTokenIndex].amount += tokenBalance.amount;
-                  allTokens[existingTokenIndex].value += tokenBalance.value;
-                } else {
-                  allTokens.push(tokenBalance);
-                }
-                
-                totalPortfolioValue += value;
-              }
-            }
-          }
-        }
-        
-        // Sort tokens by value (descending)
-        allTokens.sort((a, b) => b.value - a.value);
-
-        // Store the total token count before grouping
-        setTotalTokenCount(rawTokenCount);
-        
-        // Group small value tokens into an "Other" category if there are more than 8 tokens
-        const MAX_CHART_SEGMENTS = 8;
-        let tokensForDisplay: TokenBalance[] = allTokens;
-        
-        if (allTokens.length > MAX_CHART_SEGMENTS) {
-          const significantTokens = allTokens.slice(0, MAX_CHART_SEGMENTS - 1);
-          const smallTokens = allTokens.slice(MAX_CHART_SEGMENTS - 1);
-          
-          const otherValue = smallTokens.reduce((sum, token) => sum + token.value, 0);
-          if (otherValue > 0) {
-            const otherToken: TokenBalance = {
-              id: 'other-tokens',
-              symbol: 'OTHER',
-              name: 'Other Tokens',
-              amount: smallTokens.length,
-              decimals: 0,
-              value: parseFloat(otherValue.toFixed(2)),
-              color: '#718096', // Gray color for "Other" category
-              logoURI: 'https://raw.githubusercontent.com/alephium/token-list/master/logos/unknown.png'
-            };
-            
-            tokensForDisplay = [...significantTokens, otherToken];
-          } else {
-            tokensForDisplay = significantTokens;
-          }
-        }
-        
-        console.log(`Total portfolio value: $${totalPortfolioValue.toFixed(2)} from ${allTokens.length} tokens (${rawTokenCount} raw tokens) for ${ecosystem}`);
-        
-        setTokens(tokensForDisplay || []);
-        setPortfolioValue(totalPortfolioValue);
-        setTokenMetadataLoaded(true);
-      } catch (err) {
-        console.error(`Error fetching ${ecosystem} balances:`, err);
-      }
-    };
+  // Generate random tokens based on ecosystem
+  const generateRandomTokens = (eco: string) => {
+    const ecosystemTokens = tokenMetadata[eco] || [];
+    const tokenCount = Math.floor(Math.random() * 3) + 1; // 1-3 tokens
     
-    if (assetPrices && walletAddresses.length > 0 && ecosystem) {
-      fetchBalances();
-    }
-  }, [ecosystem, walletAddresses, assetPrices]);
-  
-  // Chart configuration for portfolio breakdown
-  const chartConfig = tokens.reduce((config, token, index) => {
-    config[token.symbol] = { 
-      label: token.name,
-      theme: {
-        light: token.color,
-        dark: token.color
-      }
-    };
-    return config;
-  }, {} as Record<string, any>);
+    return ecosystemTokens.slice(0, tokenCount).map(token => {
+      const tokenBalance = parseFloat((Math.random() * 100).toFixed(2));
+      const tokenValue = parseFloat((tokenBalance * token.price).toFixed(2));
+      
+      return {
+        symbol: token.symbol,
+        balance: tokenBalance,
+        value: tokenValue,
+      };
+    });
+  };
 
-  const pieData = tokens.map(token => ({
-    name: token.symbol,
-    value: token.value,
-    color: token.color,
-  })).filter(item => item.value > 0); // Filter out zero-value tokens
-  
-  // Format for date values
-  const formatDate = (dateString: string) => {
-    return dateString.split('-').slice(1).join('/'); // Convert YYYY-MM-DD to MM/DD
+  // Delete wallet
+  const confirmDeleteWallet = (walletId: string) => {
+    setWalletToDelete(walletId);
+    setDeleteConfirmDialogOpen(true);
+  };
+
+  const deleteWallet = () => {
+    if (!walletToDelete) return;
+    
+    try {
+      const updatedWallets = wallets.filter(wallet => wallet.id !== walletToDelete);
+      localStorage.setItem(`${ecosystem}_wallets`, JSON.stringify(updatedWallets));
+      setWallets(updatedWallets);
+      
+      // Recalculate total value
+      const newTotal = updatedWallets.reduce((sum, wallet) => {
+        const tokenValue = (wallet.tokens || []).reduce(
+          (tokenSum, token) => tokenSum + token.value, 
+          0
+        );
+        return sum + (wallet.balance || 0) + tokenValue;
+      }, 0);
+      
+      setTotalValue(newTotal);
+      
+      toast({
+        title: "Wallet Removed",
+        description: "The wallet has been removed from your portfolio.",
+      });
+    } catch (error) {
+      console.error("Error deleting wallet:", error);
+      toast({
+        title: "Error",
+        description: "Failed to remove the wallet.",
+        variant: "destructive",
+      });
+    } finally {
+      setWalletToDelete(null);
+      setDeleteConfirmDialogOpen(false);
+    }
+  };
+
+  // Function to format address for display
+  const formatAddress = (address: string) => {
+    if (address.length <= 16) return address;
+    return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
   };
 
   return (
-    <div className="space-y-4">
-      {/* Network Status Indicator - more compact */}
-      <div className="flex items-center justify-between mb-2 bg-muted/40 p-2 rounded-lg">
-        <div className="flex items-center gap-2">
-          {apiStatus.isLive ? (
-            <Wifi className="h-4 w-4 text-green-500" />
-          ) : (
-            <WifiOff className="h-4 w-4 text-amber-500" />
-          )}
-          <div>
-            <h3 className="text-sm font-medium">
-              {ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Network: {apiStatus.isLive ? "Live" : "Simulation"}
-            </h3>
-          </div>
-        </div>
-        <div className="text-xs">
-          {apiStatus.isLive ? (
-            <span className="inline-flex items-center text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full">
-              <div className="w-1.5 h-1.5 bg-green-600 dark:bg-green-400 rounded-full animate-pulse mr-1.5" />
-              Connected
-            </span>
-          ) : (
-            <span className="inline-flex items-center text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-1 rounded-full">
-              <WifiOff className="h-3 w-3 mr-1.5" />
-              Fallback Data
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Portfolio Overview Card - more compact */}
-      <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20">
-        <CardHeader className="pb-1 pt-3">
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-lg">{ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Portfolio</CardTitle>
-              <CardDescription className="text-xs">
-                {walletAddresses.length > 1 ? 
-                  `Combined (${walletAddresses.length} wallets)` : 
-                  `Wallet balance`}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
-                <Wallet className="h-4 w-4 text-primary" />
-              </div>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Portfolio Summary Card */}
+      <Card className="dark:bg-nostr-dark dark:border-white/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Portfolio Overview
+          </CardTitle>
+          <CardDescription>
+            Track your {ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} assets
+          </CardDescription>
         </CardHeader>
-        <CardContent className="pt-0 pb-3">
-          <div className="mb-2">
-            {loading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-4 w-32" />
-              </div>
-            ) : error ? (
-              <div className="text-destructive">{error}</div>
-            ) : assetPrices ? (
-              <>
-                <div className="flex items-baseline">
-                  <div className="text-2xl font-bold">
-                    {portfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <div className="ml-2 text-base font-medium text-primary">USD</div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <div className="text-sm font-medium flex items-center gap-1">
-                    <DollarSign className="h-3 w-3" />
-                    {assetPrices.price.toLocaleString()} {assetPrices.symbol}/USD
-                  </div>
-                  <div 
-                    className={`flex items-center text-xs ${
-                      assetPrices.change24h >= 0 ? 'text-green-500' : 'text-red-500'
-                    }`}
-                  >
-                    {assetPrices.change24h >= 0 ? (
-                      <ArrowUp className="h-2.5 w-2.5 mr-0.5" />
-                    ) : (
-                      <ArrowDown className="h-2.5 w-2.5 mr-0.5" />
-                    )}
-                    {Math.abs(assetPrices.change24h).toFixed(2)}% (24h)
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span>{ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Tokens:</span>
-                  <span className="font-medium">{totalTokenCount}</span>
-                  {tokens.length < totalTokenCount && (
-                    <span className="text-xs">(showing top {tokens.length})</span>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="text-muted-foreground">No price data available for {ecosystem}</div>
-            )}
-          </div>
-          
-          {/* Portfolio Chart - reduced height */}
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <div className="text-xs font-medium">Portfolio Value</div>
-              <div className="flex items-center">
-                <div className="flex space-x-1 rounded-lg border p-0.5 mr-1">
-                  <button 
-                    className={`px-1.5 py-0.5 text-[10px] rounded-md transition ${chartType === 'line' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
-                    onClick={() => setChartType('line')}
-                  >
-                    Line
-                  </button>
-                  <button 
-                    className={`px-1.5 py-0.5 text-[10px] rounded-md transition ${chartType === 'pie' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
-                    onClick={() => setChartType('pie')}
-                  >
-                    Allocation
-                  </button>
-                </div>
-                <div className="flex space-x-1 rounded-lg border p-0.5">
-                  {['7d', '30d', '90d'].map(timeframe => (
-                    <button 
-                      key={timeframe}
-                      className={`px-1.5 py-0.5 text-[10px] rounded-md transition ${selectedTimeframe === timeframe ? 'bg-primary text-white' : 'hover:bg-muted'}`}
-                      onClick={() => setSelectedTimeframe(timeframe)}
-                    >
-                      {timeframe}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 rounded-md bg-muted dark:bg-nostr-dark border dark:border-white/10">
+              <div className="text-sm text-muted-foreground">Total Value</div>
+              <div className="text-2xl font-medium">${totalValue.toFixed(2)}</div>
             </div>
-            
-            {/* Reduced chart height */}
-            <div className="h-[180px]">
-              {chartType === 'line' ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={priceHistoryData}
-                    margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={tokenColors[0]} stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor={tokenColors[0]} stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <XAxis 
-                      dataKey="date"
-                      tickFormatter={formatDate}
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10 }}
-                      padding={{ left: 10 }}
-                      height={15}
-                    />
-                    <YAxis 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(value) => `$${value}`}
-                      width={40}
-                      padding={{ top: 5 }}
-                    />
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
-                    <Tooltip 
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-background p-2 rounded-lg border shadow-md text-xs">
-                              <p className="font-medium">{payload[0].payload.date}</p>
-                              <p className="text-primary font-medium">
-                                ${Number(payload[0].value).toLocaleString()}
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="value" 
-                      stroke={tokenColors[0]} 
-                      fillOpacity={1} 
-                      fill="url(#colorValue)" 
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <ChartContainer config={chartConfig} className="h-[180px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={65}
-                        paddingAngle={4}
-                        dataKey="value"
-                        nameKey="name"
-                        label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={entry.color} 
-                            stroke="rgba(255,255,255,0.2)" 
-                            strokeWidth={1} 
-                          />
-                        ))}
-                      </Pie>
-                      <ChartTooltip 
-                        content={
-                          <ChartTooltipContent 
-                            formatter={(value: any) => [`$${Number(value).toLocaleString()}`, 'Value']}
-                          />
-                        } 
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              )}
+            <div className="p-4 rounded-md bg-muted dark:bg-nostr-dark border dark:border-white/10">
+              <div className="text-sm text-muted-foreground">Wallet Count</div>
+              <div className="text-2xl font-medium">{wallets.length}</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Assets Section with Tabs - more compact with scrollable content */}
-      <Card>
-        <CardHeader className="py-2">
-          <CardTitle className="text-base">My Assets</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 pb-1">
-          <Tabs defaultValue="tokens" className="w-full">
-            <TabsList className="grid grid-cols-3 max-w-xs mx-3 mb-2">
-              <TabsTrigger value="tokens">Tokens</TabsTrigger>
-              <TabsTrigger value="nfts">NFTs</TabsTrigger>
-              <TabsTrigger value="transactions">Transactions</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="tokens" className="mt-0 px-3">
-              <div className="rounded-lg border overflow-hidden">
-                <div className="grid grid-cols-4 gap-2 font-medium text-xs text-muted-foreground px-2 py-2 bg-muted/40">
-                  <div>Token</div>
-                  <div className="text-right">Price</div>
-                  <div className="text-right">Balance</div>
-                  <div className="text-right">Value</div>
-                </div>
-                
-                {/* Added ScrollArea for token list with fixed height */}
-                <ScrollArea className="h-[180px]">
-                  <div className="divide-y divide-border">
-                    {tokens.length > 0 ? (
-                      tokens.map((token, index) => (
-                        <div 
-                          key={index} 
-                          className="grid grid-cols-4 gap-2 px-2 py-2 hover:bg-muted/30 transition-colors"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            {token.logoURI ? (
-                              <img 
-                                src={token.logoURI} 
-                                alt={token.symbol} 
-                                className="w-5 h-5 rounded-full" 
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/alephium/token-list/master/logos/unknown.png';
-                                }}
-                              />
-                            ) : (
-                              <div 
-                                className="w-5 h-5 rounded-full" 
-                                style={{ backgroundColor: token.color }}
-                              ></div>
-                            )}
-                            <div>
-                              <div className="font-medium text-xs">{token.symbol}</div>
-                              <div className="text-[10px] text-muted-foreground truncate max-w-[110px]">
-                                {token.name}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right self-center text-xs">
-                            {token.id === 'other-tokens' ? (
-                              <span className="text-[10px] text-muted-foreground">Various</span>
-                            ) : (
-                              <div>
-                                <div>${(token.value / token.amount).toFixed(2)}</div>
-                                {token.priceSource === 'estimate' && (
-                                  <div className="text-[10px] text-muted-foreground">Est.</div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right self-center text-xs">
-                            {token.id === 'other-tokens' 
-                              ? `${token.amount} tokens` 
-                              : formatTokenAmount(
-                                  token.rawAmount || token.amount.toString(), 
-                                  token.decimals, 
-                                  token.symbol === "ALPH" ? 8 : undefined
-                                )
-                            }
-                          </div>
-                          <div className="text-right self-center font-medium text-xs">
-                            ${token.value.toLocaleString()}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-                        {loading ? "Loading token data..." : "No tokens found. Add wallet addresses to see your tokens."}
+      {/* Wallets List Section */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Your {ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Wallets</h3>
+      
+        {walletsLoaded && wallets.length === 0 ? (
+          <div className="text-center py-10 border border-dashed rounded-md dark:border-white/20">
+            <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+            <p className="text-muted-foreground mb-4">No wallets added yet</p>
+            <Button disabled={!isAuthenticated} className="dark:bg-nostr-dark dark:border-white/20">
+              <FilePlus className="mr-2 h-4 w-4" />
+              Add Wallet
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {wallets.map((wallet) => (
+              <Card key={wallet.id} className="dark:bg-nostr-dark dark:border-white/20">
+                <CardContent className="pt-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 rounded-full bg-muted dark:bg-black/30 flex items-center justify-center mr-3">
+                        <Wallet className="h-5 w-5 text-nostr-blue" />
                       </div>
-                    )}
+                      <div>
+                        <p className="font-medium">{formatAddress(wallet.address)}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {wallet.balance?.toFixed(4)} {ecosystem === 'bitcoin' ? 'BTC' : ecosystem === 'ethereum' ? 'ETH' : 'ALPH'}
+                        </p>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => confirmDeleteWallet(wallet.id)}
+                      className="h-8 w-8 dark:hover:bg-white/5"
+                    >
+                      <Trash className="h-4 w-4 text-muted-foreground" />
+                    </Button>
                   </div>
-                </ScrollArea>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="nfts" className="mt-0">
-              <div className="text-center py-6 text-muted-foreground">
-                <Coins className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                <h3 className="text-sm font-medium">No NFTs Found</h3>
-                <p className="text-xs mt-1">Connect a wallet with NFTs to view them here</p>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="transactions" className="mt-0 px-3">
-              {tokens.some(t => t.transactions && t.transactions.length > 0) ? (
-                <div className="rounded-lg border overflow-hidden">
-                  <div className="grid grid-cols-3 gap-2 font-medium text-xs text-muted-foreground px-3 py-2 bg-muted/40">
-                    <div>Transaction</div>
-                    <div>Token</div>
-                    <div className="text-right">Time</div>
-                  </div>
-                  
-                  {/* Added ScrollArea for transactions with fixed height */}
-                  <ScrollArea className="h-[180px]">
-                    <div className="divide-y divide-border">
-                      {tokens
-                        .filter(t => t.transactions && t.transactions.length > 0)
-                        .flatMap(token => 
-                          (token.transactions || []).map((tx: any, i: number) => ({
-                            ...tx,
-                            tokenSymbol: token.symbol,
-                            tokenId: token.id,
-                            tokenLogoURI: token.logoURI,
-                            tokenColor: token.color
-                          }))
-                        )
-                        .sort((a: any, b: any) => {
-                          const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-                          const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-                          return timeB - timeA; // newest first
-                        })
-                        .slice(0, 10) // Show only the 10 most recent transactions
-                        .map((tx: any, i: number) => (
-                          <div 
-                            key={i} 
-                            className="grid grid-cols-3 gap-2 px-3 py-2 hover:bg-muted/30 transition-colors"
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
-                              <span className="font-mono text-[10px] truncate max-w-[100px]">
-                                {tx.hash?.substring(0, 8) || `TX-${i}`}...
-                              </span>
+
+                  {/* Token List */}
+                  {wallet.tokens && wallet.tokens.length > 0 && (
+                    <div className="mt-4 pt-4 border-t dark:border-white/10">
+                      <h4 className="text-sm font-medium mb-2">Tokens</h4>
+                      <div className="space-y-2">
+                        {wallet.tokens.map((token, idx) => (
+                          <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
+                            <div className="flex items-center">
+                              <Circle className="h-4 w-4 mr-2 text-nostr-blue" />
+                              <span>{token.symbol}</span>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              {tx.tokenLogoURI ? (
-                                <img 
-                                  src={tx.tokenLogoURI}
-                                  alt={tx.tokenSymbol} 
-                                  className="w-3 h-3 rounded-full" 
-                                />
-                              ) : (
-                                <div 
-                                  className="w-3 h-3 rounded-full" 
-                                  style={{ backgroundColor: tx.tokenColor }}
-                                ></div>
-                              )}
-                              <span className="text-xs">{tx.tokenSymbol}</span>
-                            </div>
-                            <div className="text-right text-[10px] text-muted-foreground">
-                              {tx.timestamp 
-                                ? new Date(tx.timestamp).toLocaleString(undefined, {
-                                    month: 'numeric', 
-                                    day: 'numeric',
-                                    hour: '2-digit', 
-                                    minute: '2-digit'
-                                  }) 
-                                : new Date().toLocaleString()
-                              }
+                            <div className="text-sm">
+                              <div>{token.balance.toFixed(2)}</div>
+                              <div className="text-muted-foreground text-xs">${token.value.toFixed(2)}</div>
                             </div>
                           </div>
-                        ))
-                      }
+                        ))}
+                      </div>
                     </div>
-                  </ScrollArea>
-                </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  <TrendingUp className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                  <h3 className="text-sm font-medium">No Transactions Found</h3>
-                  <p className="text-xs mt-1">Recent transactions will appear here</p>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmDialogOpen} onOpenChange={setDeleteConfirmDialogOpen}>
+        <div 
+          className={`fixed inset-0 z-50 flex items-center justify-center ${deleteConfirmDialogOpen ? 'block' : 'hidden'}`}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }} 
+        >
+          <div className="bg-background p-6 rounded-lg max-w-md w-full mx-4 dark:bg-nostr-dark dark:border-white/20 border">
+            <h3 className="text-lg font-medium mb-2">Confirm Deletion</h3>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to remove this wallet from your portfolio? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-4">
+              <Button variant="outline" onClick={() => setDeleteConfirmDialogOpen(false)} className="dark:border-white/20">
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={deleteWallet}>
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
-}
+};
 
 export default PortfolioOverview;
