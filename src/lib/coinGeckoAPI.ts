@@ -46,37 +46,56 @@ export async function fetchTokenBalance(ecosystem: string, address: string): Pro
   
   if (ecosystem === 'alephium') {
     try {
-      const nodeProvider = web3.getCurrentNodeProvider();
-      if (nodeProvider) {
-        const balance = await nodeProvider.addresses.getAddressesAddressBalance(address);
-        return balance;
+      // Make sure the NodeProvider is initialized
+      let nodeProvider = web3.getCurrentNodeProvider();
+      
+      // If not initialized, create a new NodeProvider
+      if (!nodeProvider) {
+        console.log("Creating new NodeProvider for balance check");
+        nodeProvider = new NodeProvider('https://node.mainnet.alephium.org');
+        web3.setCurrentNodeProvider(nodeProvider);
       }
+      
+      const balance = await nodeProvider.addresses.getAddressesAddressBalance(address);
+      console.log("Retrieved balance:", balance);
+      return balance;
     } catch (error) {
       console.error('Error fetching Alephium balance:', error);
     }
   }
   
-  return { balance: '0' };
+  return { balance: '0', lockedBalance: '0' };
 }
 
 export async function fetchAlephiumData() {
   const mainnetNodeUrl = 'https://node.mainnet.alephium.org';
   
   try {
+    console.log("Fetching Alephium data...");
+    
     // Initialize the node provider if not already initialized
-    if (!web3.getCurrentNodeProvider()) {
-      const nodeProvider = new NodeProvider(mainnetNodeUrl);
+    let nodeProvider;
+    try {
+      nodeProvider = web3.getCurrentNodeProvider();
+      if (!nodeProvider) {
+        console.log("Creating new NodeProvider");
+        nodeProvider = new NodeProvider(mainnetNodeUrl);
+        web3.setCurrentNodeProvider(nodeProvider);
+      }
+    } catch (error) {
+      console.error("Error initializing NodeProvider:", error);
+      nodeProvider = new NodeProvider(mainnetNodeUrl);
       web3.setCurrentNodeProvider(nodeProvider);
     }
     
-    // Get current info about the blockchain
-    const nodeProvider = web3.getCurrentNodeProvider();
     if (!nodeProvider) {
-      throw new Error("Node provider not initialized");
+      throw new Error("Failed to initialize NodeProvider");
     }
     
     // Getting infos - using the correct API methods
+    console.log("Fetching node info...");
     const nodeInfo = await nodeProvider.infos.getInfosNode();
+    console.log("Fetching blockflow chain info...");
     const blockflowChainInfo = await nodeProvider.blockflow.getBlockflowChainInfo({ fromGroup: 0, toGroup: 3 });
     
     return {
@@ -91,7 +110,7 @@ export async function fetchAlephiumData() {
     console.error('Error connecting to Alephium:', error);
     return {
       success: false,
-      message: "Failed to connect to Alephium blockchain"
+      message: `Failed to connect to Alephium blockchain: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }

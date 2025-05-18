@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
@@ -25,12 +24,19 @@ const AlephiumSection = () => {
   useEffect(() => {
     // Check if already connected
     try {
-      if (web3.getCurrentNodeProvider()) {
+      // Safely check if the node provider is initialized
+      const provider = web3.getCurrentNodeProvider();
+      if (provider) {
         setIsConnected(true);
         setMessage("Connected to Alephium blockchain");
+        // If connected, attempt to load wallet balances
+        loadWalletBalances().catch(err => {
+          console.error("Failed to load initial wallet balances:", err);
+        });
       }
     } catch (error) {
       console.error("Error checking connection:", error);
+      setMessage("Error checking Alephium connection");
     }
   }, []);
 
@@ -39,36 +45,6 @@ const AlephiumSection = () => {
       loadWalletBalances();
     }
   }, [isConnected]);
-
-  const connectToAlephium = async () => {
-    try {
-      setIsLoading(true);
-      setMessage("Connecting to Alephium blockchain...");
-      
-      // Initialize the node provider
-      const nodeProvider = new NodeProvider(MAINNET_NODE_URL);
-      web3.setCurrentNodeProvider(nodeProvider);
-      
-      setIsConnected(true);
-      setMessage("Connected to Alephium blockchain");
-      
-      toast({
-        title: "Connected to Alephium",
-        description: "Successfully connected to the Alephium network",
-      });
-    } catch (error) {
-      console.error("Failed to connect to Alephium:", error);
-      setMessage("Failed to connect to Alephium blockchain");
-      
-      toast({
-        title: "Connection Failed",
-        description: "Could not connect to Alephium network",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const loadWalletBalances = async () => {
     try {
@@ -128,11 +104,66 @@ const AlephiumSection = () => {
     }
   };
 
+  const connectToAlephium = async () => {
+    try {
+      setIsLoading(true);
+      setMessage("Connecting to Alephium blockchain...");
+      
+      console.log("Attempting to connect to Alephium network...");
+      
+      // Create a new NodeProvider with explicit error handling
+      const nodeProvider = new NodeProvider(MAINNET_NODE_URL);
+      console.log("NodeProvider created");
+      
+      // Set the current node provider
+      web3.setCurrentNodeProvider(nodeProvider);
+      console.log("NodeProvider set globally");
+      
+      // Test the connection with a simple API call
+      try {
+        const nodeInfo = await nodeProvider.infos.getInfosNode();
+        console.log("Connection test successful:", nodeInfo.buildInfo);
+      } catch (testError) {
+        console.error("Connection test failed:", testError);
+        throw new Error("Failed to connect to Alephium node");
+      }
+      
+      setIsConnected(true);
+      setMessage("Connected to Alephium blockchain");
+      
+      toast({
+        title: "Connected to Alephium",
+        description: "Successfully connected to the Alephium network",
+      });
+      
+      // After connecting, try to load wallet balances
+      await loadWalletBalances();
+    } catch (error) {
+      console.error("Failed to connect to Alephium:", error);
+      setMessage(`Failed to connect to Alephium blockchain: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      toast({
+        title: "Connection Failed",
+        description: "Could not connect to Alephium network",
+        variant: "destructive",
+      });
+      
+      setIsConnected(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const formatBalance = (balance: string): string => {
-    // Alephium uses 10^18 as decimals for its native token
-    const value = BigInt(balance);
-    const formatted = Number(value) / Math.pow(10, 18);
-    return formatted.toFixed(4);
+    try {
+      // Alephium uses 10^18 as decimals for its native token
+      const value = BigInt(balance);
+      const formatted = Number(value) / Math.pow(10, 18);
+      return formatted.toFixed(4);
+    } catch (error) {
+      console.error("Error formatting balance:", error);
+      return "0.0000";
+    }
   };
 
   return (
@@ -206,7 +237,7 @@ const AlephiumSection = () => {
                     </div>
                     <div className="flex justify-between mt-1">
                       <span>Total Transactions:</span>
-                      <span>{balance.numTxs}</span>
+                      <span>{balance.numTxs || 0}</span>
                     </div>
                   </div>
                 </div>

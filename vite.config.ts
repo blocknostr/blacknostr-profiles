@@ -18,6 +18,8 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Add buffer polyfill alias
+      'buffer': 'buffer',
     },
   },
   define: {
@@ -25,4 +27,8 @@ export default defineConfig(({ mode }) => ({
     global: 'globalThis',
     'process.env': {},
   },
+  optimizeDeps: {
+    // Include buffer in dependencies to be optimized
+    include: ['buffer'],
+  }
 }));
