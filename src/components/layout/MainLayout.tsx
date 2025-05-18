@@ -1,0 +1,54 @@
+
+import { useState } from "react";
+import Sidebar from "./Sidebar";
+import RightSidebar from "./RightSidebar";
+import { Button } from "@/components/ui/button";
+import { Menu } from "lucide-react";
+
+interface MainLayoutProps {
+  children: React.ReactNode;
+}
+
+export default function MainLayout({ children }: MainLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  return (
+    <div className="flex min-h-screen">
+      {/* Mobile sidebar toggle */}
+      <div className="md:hidden fixed top-4 left-4 z-20">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
+
+      {/* Sidebar - hidden on mobile unless toggled */}
+      <div className={`
+        md:block fixed md:static top-0 left-0 h-screen z-10
+        transform transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}>
+        <Sidebar />
+      </div>
+
+      {/* Main content */}
+      <div className="flex-grow max-w-3xl mx-auto px-4 py-6 md:px-6">
+        {children}
+      </div>
+
+      {/* Right sidebar */}
+      <RightSidebar />
+
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/20 z-0"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+    </div>
+  );
+}

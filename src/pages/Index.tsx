@@ -1,13 +1,61 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useNostr } from "@/contexts/NostrContext";
+import MainLayout from "@/components/layout/MainLayout";
+import { LoginForm } from "@/components/auth/LoginForm";
+import CreateNote from "@/components/feed/CreateNote";
+import NoteFeed from "@/components/feed/NoteFeed";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+  const { isAuthenticated, isLoading } = useNostr();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-nostr-primary mb-4">NOSTR App</h1>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <h1 className="text-4xl font-bold text-nostr-primary mb-8">NOSTR App</h1>
+        <p className="text-xl text-muted-foreground mb-8 text-center max-w-md">
+          A decentralized social network built on NOSTR protocol
+        </p>
+        <LoginForm />
+      </div>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold">Home</h1>
+        
+        <Tabs defaultValue="global" className="w-full">
+          <TabsList className="w-full">
+            <TabsTrigger value="global" className="flex-1">Global</TabsTrigger>
+            <TabsTrigger value="following" className="flex-1">Following</TabsTrigger>
+          </TabsList>
+          <TabsContent value="global" className="mt-4">
+            <CreateNote />
+            <NoteFeed />
+          </TabsContent>
+          <TabsContent value="following" className="mt-4">
+            <CreateNote />
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Your following feed will appear here.</p>
+              <p>Follow some users to see their posts!</p>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </MainLayout>
   );
 };
 
