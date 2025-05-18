@@ -25,6 +25,8 @@ export interface TokenMetadata {
   coingeckoId?: string;
   isStablecoin?: boolean;
   price?: number;
+  lastUpdated?: number;
+  transactions?: any[];
 }
 
 interface TokenList {
@@ -34,19 +36,31 @@ interface TokenList {
 
 // Updated URL to the correct path for the mainnet token list
 const TOKEN_LIST_URL = "https://raw.githubusercontent.com/alephium/token-list/master/tokens/mainnet.json";
+const TRANSACTIONS_API = "https://backend.mainnet.alephium.org/tokens";
 let tokenCache: Record<string, TokenMetadata> | null = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 3600000; // 1 hour in milliseconds
 
-// Map of known token IDs to their CoinGecko equivalents
-export const tokenMappings: Record<string, { coingeckoId: string, isStablecoin?: boolean }> = {
+// Map of known token IDs to their CoinGecko equivalents and relevant data
+export const tokenMappings: Record<string, { 
+  coingeckoId: string, 
+  isStablecoin?: boolean,
+  price?: number 
+}> = {
   // AlphBanx token
   "27aa562d592758d73b33ef11ac5b574aea843a3e315a8d1bdef714c3d6a52cd5": {
     coingeckoId: "alphbanx",
+    price: 0.008
   },
   // Native ALPH token
   "ALPH": {
     coingeckoId: "alephium",
+  },
+  // USDT on Alephium
+  "0fecb142f02eeee90f3daf141a07fec6c4fa35ceef2e3bd2a9e9186b4b85ae43": {
+    coingeckoId: "tether",
+    isStablecoin: true,
+    price: 1.0
   },
   // Add more mappings as needed
 };
@@ -85,6 +99,7 @@ export const fetchTokenList = async (): Promise<Record<string, TokenMetadata>> =
       if (tokenMappings[token.id]) {
         token.coingeckoId = tokenMappings[token.id].coingeckoId;
         token.isStablecoin = tokenMappings[token.id].isStablecoin;
+        token.price = tokenMappings[token.id].price;
       }
       tokenMap[token.id] = token;
     });
@@ -130,12 +145,39 @@ export const fetchTokenList = async (): Promise<Record<string, TokenMetadata>> =
 };
 
 /**
+ * Fetches transactions for a specific token
+ */
+export const fetchTokenTransactions = async (tokenId: string, page: number = 1, limit: number = 10): Promise<any[]> => {
+  try {
+    const url = `${TRANSACTIONS_API}/${tokenId}/transactions?page=${page}&limit=${limit}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch transactions: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error(`Error fetching transactions for token ${tokenId}:`, error);
+    return [];
+  }
+};
+
+/**
  * Gets metadata for a specific token ID
  */
 export const getTokenMetadata = async (tokenId: string): Promise<TokenMetadata | undefined> => {
   try {
     const tokenMap = await fetchTokenList();
-    return tokenMap[tokenId] || getFallbackTokenData(tokenId);
+    const token = tokenMap[tokenId] || getFallbackTokenData(tokenId);
+    
+    // Fetch recent transactions only if they haven't been fetched already
+    if (!token.transactions) {
+      token.transactions = await fetchTokenTransactions(tokenId);
+    }
+    
+    return token;
   } catch (error) {
     console.error(`Error getting metadata for token ${tokenId}:`, error);
     return getFallbackTokenData(tokenId);

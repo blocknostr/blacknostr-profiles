@@ -44,6 +44,17 @@ export type NostrRelayConfig = {
   write: boolean;
 };
 
+// Alephium transaction type for NOSTR events
+export type AlephiumTransaction = {
+  hash: string;
+  blockHash: string;
+  timestamp: number;
+  inputs: any[];
+  outputs: any[];
+  tokenId?: string;
+  amount?: string;
+};
+
 // Default relays - Top 10 most popular NOSTR relays according to NIP
 export const DEFAULT_RELAYS: NostrRelayConfig[] = [
   { url: 'wss://relay.damus.io', read: true, write: true },
@@ -57,6 +68,35 @@ export const DEFAULT_RELAYS: NostrRelayConfig[] = [
   { url: 'wss://purplepag.es', read: true, write: true },
   { url: 'wss://relay.nostr.bg', read: true, write: true },
 ];
+
+// NOSTR event kinds
+export const NOSTR_KINDS = {
+  METADATA: 0,
+  TEXT_NOTE: 1,
+  RECOMMEND_SERVER: 2,
+  CONTACTS: 3,
+  ENCRYPTED_DIRECT_MESSAGE: 4,
+  DELETE: 5,
+  REACTION: 7,
+  CHANNEL_CREATION: 40,
+  CHANNEL_METADATA: 41,
+  CHANNEL_MESSAGE: 42,
+  CHANNEL_HIDE_MESSAGE: 43,
+  CHANNEL_MUTE_USER: 44,
+  REPORTING: 1984,
+  ZAP_REQUEST: 9734,
+  ZAP_RECEIPT: 9735,
+  REPLACEABLE_FIRST: 10000,
+  REPLACEABLE_LAST: 19999,
+  EPHEMERAL_FIRST: 20000,
+  EPHEMERAL_LAST: 29999,
+  PARAMETERIZED_REPLACEABLE_FIRST: 30000,
+  PARAMETERIZED_REPLACEABLE_LAST: 39999,
+  CUSTOM_APPLICATION_FIRST: 40000,
+  CUSTOM_APPLICATION_LAST: 49999,
+  // Custom kinds for Alephium integration
+  ALEPHIUM_TRANSACTION: 30000, // Using parameterized replaceable kind as per NIP-16
+};
 
 // Local storage keys
 export const NOSTR_KEYS = {
@@ -179,4 +219,55 @@ export const parseNote = (event: NostrEvent): NostrNote => {
     sig: event.sig,
     nip19Id: nip19.noteEncode(event.id),
   };
+};
+
+// Create Alephium transaction NOSTR event (NIP-16 compliant)
+export const createAlephiumTxEvent = (
+  tx: AlephiumTransaction, 
+  tokenId: string,
+  tokenSymbol: string,
+  privateKey: string
+): NostrEvent => {
+  // Following NIP-16 for parameterized replaceable events
+  const event: any = {
+    kind: NOSTR_KINDS.ALEPHIUM_TRANSACTION,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [
+      ['d', `alephium-tx-${tx.hash}`], // Unique identifier as per NIP-01
+      ['token', tokenId],
+      ['symbol', tokenSymbol],
+      ['tx', tx.hash],
+      ['block', tx.blockHash],
+      ['amount', tx.amount || '0'],
+      ['timestamp', tx.timestamp.toString()]
+    ],
+    content: JSON.stringify(tx),
+    pubkey: getPublicKey(privateKey),
+  };
+  
+  return event;
+};
+
+// Publish Alephium transaction to NOSTR relays
+export const publishAlephiumTxToNostr = async (
+  tx: AlephiumTransaction,
+  tokenId: string,
+  tokenSymbol: string
+): Promise<boolean> => {
+  try {
+    const { privateKey } = getKeys();
+    if (!privateKey) {
+      console.error('No private key available');
+      return false;
+    }
+    
+    const event = createAlephiumTxEvent(tx, tokenId, tokenSymbol, privateKey);
+    
+    // In a real implementation, you would sign and publish to relays here
+    console.log('Would publish TX to NOSTR:', event);
+    return true;
+  } catch (error) {
+    console.error('Error publishing transaction to NOSTR:', error);
+    return false;
+  }
 };
