@@ -46,9 +46,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </ShadcnSidebar>
         </div>
 
-        {/* Main content */}
-        <div className="flex-grow px-4 py-6 md:px-6 md:ml-64 font-medium overflow-y-auto">
-          <div className="max-w-3xl mx-auto">
+        {/* Main content - centered with consistent width */}
+        <div className="flex-grow py-6 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-4 md:px-6">
             {children}
           </div>
         </div>
