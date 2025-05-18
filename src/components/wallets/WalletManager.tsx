@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -78,12 +77,10 @@ const WalletManager = ({ ecosystem }: WalletManagerProps) => {
       } else if (ecosystem === "alephium") {
         // Use Alephium SDK for validation
         try {
-          // validateAddress returns boolean in newer versions
-          const isAddressValid = validateAddress(newAddress);
-          if (isAddressValid === false) { // Explicitly check false
-            isValid = false;
-            errorMsg = "Invalid Alephium address format";
-          }
+          // Fix: Don't directly compare the result with false
+          // Instead, check if validateAddress() throws an error or not
+          validateAddress(newAddress);
+          // If we reach here, validation succeeded
         } catch (error) {
           isValid = false;
           errorMsg = "Invalid Alephium address format";
