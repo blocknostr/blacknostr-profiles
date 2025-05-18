@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNostr } from '@/contexts/NostrContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import MainLayout from '@/components/layout/MainLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,12 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
-import { Settings as SettingsIcon, Trash2, Wifi, Link } from 'lucide-react';
+import { Settings as SettingsIcon, Trash2, Wifi, Link, Moon, Sun } from 'lucide-react';
 import { DEFAULT_RELAYS } from '@/lib/nostr';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 const formSchema = z.object({
   url: z.string().url({ message: "Please enter a valid URL starting with wss://" }).startsWith('wss://', { message: "NOSTR relays must use wss:// protocol" }),
@@ -27,6 +29,7 @@ type RelayFormValues = z.infer<typeof formSchema>;
 
 export default function Settings() {
   const { relays, addRelay, removeRelay, updateRelay, saveRelaysToStorage } = useNostr();
+  const { theme, setTheme } = useTheme();
   const [isAddingRelay, setIsAddingRelay] = useState(false);
 
   const form = useForm<RelayFormValues>({
@@ -67,6 +70,29 @@ export default function Settings() {
         <h1 className="text-3xl font-bold mb-8 flex items-center">
           <SettingsIcon className="mr-2" /> Settings
         </h1>
+
+        {/* Theme Settings */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              {theme === "dark" ? <Moon className="mr-2" /> : <Sun className="mr-2" />} Appearance
+            </CardTitle>
+            <CardDescription>
+              Customize how BlockNostr looks for you
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="theme-mode" className="text-base font-medium">Theme Mode</Label>
+                <p className="text-sm text-muted-foreground">
+                  Choose between light, dark, or system theme
+                </p>
+              </div>
+              <ThemeToggle />
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="mb-8">
           <CardHeader>

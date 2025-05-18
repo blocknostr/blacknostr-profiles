@@ -59,7 +59,7 @@ export default function Sidebar() {
     <div className="h-screen border-r border-border flex flex-col p-4 w-64">
       {/* Logo */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-nostr-primary">NOSTR App</h1>
+        <h1 className="text-2xl font-bold text-nostr-primary">BlockNostr</h1>
       </div>
 
       {/* Navigation */}
