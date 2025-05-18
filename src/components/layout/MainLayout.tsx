@@ -4,7 +4,6 @@ import Sidebar from "./Sidebar";
 import RightSidebar from "./RightSidebar";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -28,47 +27,24 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </Button>
       </div>
 
-      <ResizablePanelGroup
-        direction="horizontal"
-        className="w-full min-h-screen"
-      >
-        {/* Left Sidebar - hidden on mobile unless toggled */}
-        <div className={`
-          md:relative fixed top-0 left-0 h-screen z-20 w-80
-          transform transition-transform duration-300 ease-in-out
-          ${leftSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        `}>
-          <ResizablePanel 
-            defaultSize={20} 
-            minSize={15} 
-            maxSize={30}
-            className="h-full hidden md:block"
-          >
-            <Sidebar />
-          </ResizablePanel>
-          
-          {/* Mobile sidebar (non-resizable) */}
-          <div className="md:hidden h-full">
-            <Sidebar />
-          </div>
-        </div>
+      {/* Left Sidebar - fixed on desktop, slide in on mobile */}
+      <div className={`
+        md:relative fixed top-0 left-0 z-20 w-80
+        transform transition-transform duration-300 ease-in-out
+        ${leftSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}>
+        <Sidebar />
+      </div>
 
-        {/* Main content */}
-        <ResizableHandle withHandle className="hidden md:flex" />
-        
-        <ResizablePanel defaultSize={60}>
-          <div className="flex-grow max-w-3xl mx-auto px-4 py-6 md:px-6">
-            {children}
-          </div>
-        </ResizablePanel>
+      {/* Main content - scrollable */}
+      <div className="flex-grow mx-auto px-4 py-6 md:px-6 md:ml-80 lg:mr-80 overflow-y-auto max-w-3xl">
+        {children}
+      </div>
 
-        {/* Right sidebar - always hidden on mobile */}
-        <ResizableHandle withHandle className="hidden lg:flex" />
-        
-        <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="hidden lg:block">
-          <RightSidebar />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+      {/* Right sidebar - hidden on mobile, fixed on desktop */}
+      <div className="hidden lg:block fixed right-0 top-0">
+        <RightSidebar />
+      </div>
 
       {/* Mobile sidebar overlay */}
       {leftSidebarOpen && (

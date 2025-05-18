@@ -23,7 +23,7 @@ import { toast } from "@/components/ui/use-toast";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export default function Sidebar() {
-  const { isAuthenticated, profile, logout, publishNote } = useNostr();
+  const { isAuthenticated, profile, publishNote } = useNostr();
   const [noteContent, setNoteContent] = useState("");
   
   const navItems = [
@@ -58,70 +58,67 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="h-screen w-80 p-4 border-r border-border dark:bg-nostr-dark dark:border-white/10 overflow-y-auto">
+    <div className="fixed h-screen w-80 flex flex-col border-r border-border dark:bg-nostr-dark dark:border-white/10">
       {/* Logo and Theme Toggle */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="p-4 mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
         <ThemeToggle />
       </div>
 
       {/* Navigation */}
-      <Card className="mb-6 dark:bg-nostr-cardBg dark:border-white/10">
-        <CardHeader className="pb-3">
-          <CardTitle>Navigation</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.label}
-              to={item.href}
-              className="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
-            >
-              {item.icon}
-              <span className="ml-3">{item.label}</span>
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
-      
-      {/* Create Note Button - Styled prominently */}
-      <div className="mt-4 mb-6">
-        <Button 
-          onClick={handleCreateNote}
-          className="w-full bg-nostr-blue hover:bg-nostr-blue/90 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2"
-        >
-          <PenSquare className="h-4 w-4" />
-          Create Note
-        </Button>
+      <div className="flex-1 overflow-y-auto px-4">
+        <Card className="mb-6 dark:bg-nostr-cardBg dark:border-white/10">
+          <CardHeader className="pb-3">
+            <CardTitle>Navigation</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {navItems.map((item) => (
+              <Link
+                key={item.label}
+                to={item.href}
+                className="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
+              >
+                {item.icon}
+                <span className="ml-3">{item.label}</span>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+        
+        {/* Create Note Button - Styled prominently */}
+        <div className="mt-4 mb-6">
+          <Button 
+            onClick={handleCreateNote}
+            className="w-full bg-nostr-blue hover:bg-nostr-blue/90 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2"
+          >
+            <PenSquare className="h-4 w-4" />
+            Create Note
+          </Button>
+        </div>
       </div>
 
-      {/* User Profile */}
+      {/* User Profile - Fixed at bottom */}
       {isAuthenticated && profile && (
-        <Card className="dark:bg-nostr-cardBg dark:border-white/10">
-          <CardHeader className="pb-3">
-            <CardTitle>Profile</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-3 mb-4">
+        <div className="p-4 border-t border-border dark:border-white/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
               <Avatar>
                 <AvatarImage src={profile.picture} alt={profile.displayName || "User"} />
                 <AvatarFallback>{profile.displayName?.charAt(0) || "U"}</AvatarFallback>
               </Avatar>
               <div className="overflow-hidden">
                 <p className="text-sm font-medium truncate">{profile.displayName || "Anonymous"}</p>
-                <p className="text-xs text-muted-foreground truncate dark:text-nostr-muted">{profile.npub || ""}</p>
               </div>
             </div>
             
             <Button 
               variant="outline" 
-              className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5" 
-              onClick={logout}
+              className="dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5" 
             >
-              Logout
+              <Wallet className="h-4 w-4 mr-1" /> Connect
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );
