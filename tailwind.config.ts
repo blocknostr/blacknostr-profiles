@@ -54,13 +54,12 @@ export default {
 					foreground: 'hsl(var(--card-foreground))'
 				},
 				nostr: {
-					primary: '#8B5CF6',
-					secondary: '#0EA5E9',
+					primary: '#0066cc',  // Changed from purple to blue
+					secondary: '#0066cc', // Changed from cyan to blue
 					dark: '#000000',
 					light: '#F8FAFC',
 					muted: '#D3D3D3',
-					cyan: '#1EAEDB',
-					blue: '#33C3F0'
+					blue: '#0066cc'      // Kept blue, removed cyan
 				}
 			},
 			borderRadius: {

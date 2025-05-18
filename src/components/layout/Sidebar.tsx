@@ -60,7 +60,7 @@ export default function Sidebar() {
     <div className="h-screen border-r border-border flex flex-col p-4 w-64 dark:bg-black">
       {/* Logo and Theme Toggle */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-nostr-primary dark:text-nostr-cyan">BlockNostr</h1>
+        <h1 className="text-2xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
         <ThemeToggle />
       </div>
 
@@ -82,7 +82,7 @@ export default function Sidebar() {
       <div className="mt-4 mb-6">
         <Button 
           onClick={handleCreateNote}
-          className="w-full bg-nostr-primary hover:bg-nostr-primary/90 dark:bg-nostr-cyan dark:hover:bg-nostr-blue text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2"
+          className="w-full bg-nostr-primary hover:bg-nostr-primary/90 dark:bg-nostr-blue dark:hover:bg-nostr-blue/90 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2"
         >
           <PenSquare className="h-4 w-4" />
           Create Note

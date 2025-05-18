@@ -14,16 +14,16 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 262 83% 58%;
+    --primary: 210 100% 40%; /* Changed from purple to blue */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 199 89% 48%;
+    --secondary: 210 100% 40%; /* Changed from cyan to blue */
     --secondary-foreground: 210 40% 98%;
 
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 262 83% 58%;
+    --accent: 210 100% 40%; /* Changed from purple to blue */
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 84% 60%;
@@ -46,16 +46,16 @@
     --popover: 0 0% 0%;
     --popover-foreground: 0 0% 100%;
 
-    --primary: 262 83% 58%; /* Keep purple primary */
+    --primary: 210 100% 40%; /* Changed from purple to blue */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 199 89% 48%; /* Keep blue secondary */
+    --secondary: 210 100% 40%; /* Changed from cyan to blue */
     --secondary-foreground: 0 0% 100%;
 
     --muted: 0 0% 15%; /* Dark gray background */
     --muted-foreground: 0 0% 83%; /* Light gray text (#D3D3D3) */
 
-    --accent: 196 64% 49%; /* Bright blue accent (#1EAEDB) */
+    --accent: 210 100% 40%; /* Changed from cyan to blue */
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 63% 31%;
@@ -98,7 +98,7 @@
   }
 
   .nostr-link {
-    @apply text-nostr-primary dark:text-nostr-cyan hover:text-nostr-primary/90 dark:hover:text-nostr-blue transition-colors;
+    @apply text-nostr-primary hover:text-nostr-primary/90 transition-colors;
   }
 
   .dark .glass-morphism {
