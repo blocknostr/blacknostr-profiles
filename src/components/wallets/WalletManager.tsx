@@ -162,6 +162,6 @@ const WalletManager = ({ ecosystem }: WalletManagerProps) => {
       )}
     </div>
   );
-};
+}
 
 export default WalletManager;

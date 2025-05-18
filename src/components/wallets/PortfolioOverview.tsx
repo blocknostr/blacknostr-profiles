@@ -72,13 +72,13 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Price Card */}
-        <Card className="dark:bg-black dark:border-white/20">
+        <Card className="dark:bg-nostr-cardBg dark:border-white/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-medium">Current Price</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="animate-pulse h-12 bg-muted rounded-md dark:bg-white/10"></div>
+              <div className="animate-pulse h-12 bg-muted rounded-md dark:bg-black/50"></div>
             ) : error ? (
               <div className="text-destructive">{error}</div>
             ) : assetPrices ? (
@@ -103,7 +103,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         </Card>
 
         {/* Portfolio Value Card */}
-        <Card className="dark:bg-black dark:border-white/20">
+        <Card className="dark:bg-nostr-cardBg dark:border-white/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-medium">Portfolio Value</CardTitle>
           </CardHeader>
@@ -117,7 +117,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
       </div>
 
       {/* Market Data */}
-      <Card className="dark:bg-black dark:border-white/20">
+      <Card className="dark:bg-nostr-cardBg dark:border-white/20">
         <CardHeader>
           <CardTitle className="text-lg font-medium">
             <div className="flex items-center">
@@ -129,8 +129,8 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         <CardContent>
           {loading ? (
             <div className="space-y-2">
-              <div className="animate-pulse h-6 bg-muted rounded-md w-1/2 dark:bg-white/10"></div>
-              <div className="animate-pulse h-6 bg-muted rounded-md w-1/3 dark:bg-white/10"></div>
+              <div className="animate-pulse h-6 bg-muted rounded-md w-1/2 dark:bg-black/50"></div>
+              <div className="animate-pulse h-6 bg-muted rounded-md w-1/3 dark:bg-black/50"></div>
             </div>
           ) : error ? (
             <div className="text-destructive">{error}</div>
@@ -160,7 +160,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
       </Card>
 
       {/* Portfolio Breakdown */}
-      <Card className="dark:bg-black dark:border-white/20">
+      <Card className="dark:bg-nostr-cardBg dark:border-white/20">
         <CardHeader>
           <CardTitle className="text-lg font-medium">Portfolio Breakdown</CardTitle>
         </CardHeader>
@@ -172,6 +172,6 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
       </Card>
     </div>
   );
-};
+}
 
 export default PortfolioOverview;

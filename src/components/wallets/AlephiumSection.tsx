@@ -24,7 +24,7 @@ const AlephiumSection = () => {
 
   return (
     <div className="space-y-6">
-      <Card className="dark:bg-black dark:border-white/20">
+      <Card className="dark:bg-nostr-cardBg dark:border-white/20">
         <CardHeader>
           <CardTitle className="text-lg font-medium">Alephium Integration</CardTitle>
         </CardHeader>
@@ -38,7 +38,7 @@ const AlephiumSection = () => {
           {!isConnected ? (
             <Button 
               onClick={connectToAlephium}
-              className="dark:bg-nostr-blue dark:hover:bg-nostr-blue/90"
+              className="bg-nostr-blue hover:bg-nostr-blue/90 text-white"
             >
               Connect to Alephium
             </Button>
@@ -49,14 +49,14 @@ const AlephiumSection = () => {
           )}
           
           {message && (
-            <div className="mt-4 p-3 rounded bg-muted dark:bg-white/10">
+            <div className="mt-4 p-3 rounded bg-muted dark:bg-black/30 dark:border dark:border-white/10">
               {message}
             </div>
           )}
         </CardContent>
       </Card>
       
-      <Card className="dark:bg-black dark:border-white/20">
+      <Card className="dark:bg-nostr-cardBg dark:border-white/20">
         <CardHeader>
           <CardTitle className="text-lg font-medium">Alephium Documentation</CardTitle>
         </CardHeader>

@@ -57,7 +57,7 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="h-screen border-r border-border flex flex-col p-4 w-64 dark:bg-black">
+    <div className="h-screen border-r border-border flex flex-col p-4 w-64 dark:bg-nostr-dark">
       {/* Logo and Theme Toggle */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
@@ -82,7 +82,7 @@ export default function Sidebar() {
       <div className="mt-4 mb-6">
         <Button 
           onClick={handleCreateNote}
-          className="w-full bg-nostr-primary hover:bg-nostr-primary/90 dark:bg-nostr-blue dark:hover:bg-nostr-blue/90 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2"
+          className="w-full bg-nostr-blue hover:bg-nostr-blue/90 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2"
         >
           <PenSquare className="h-4 w-4" />
           Create Note
@@ -104,7 +104,7 @@ export default function Sidebar() {
       )}
       
       {isAuthenticated && (
-        <Button variant="outline" className="mt-2" onClick={logout}>
+        <Button variant="outline" className="mt-2 dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5" onClick={logout}>
           Logout
         </Button>
       )}

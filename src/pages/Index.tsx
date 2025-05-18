@@ -10,9 +10,9 @@ const Index = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center dark:bg-nostr-dark">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-nostr-primary mb-4">NOSTR App</h1>
+          <h1 className="text-2xl font-bold text-nostr-blue mb-4">BlockNostr</h1>
           <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
@@ -21,8 +21,8 @@ const Index = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <h1 className="text-4xl font-bold text-nostr-primary mb-8">NOSTR App</h1>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 dark:bg-nostr-dark">
+        <h1 className="text-4xl font-bold text-nostr-blue mb-8">BlockNostr</h1>
         <p className="text-xl text-muted-foreground mb-8 text-center max-w-md">
           A decentralized social network built on NOSTR protocol
         </p>
@@ -37,7 +37,7 @@ const Index = () => {
         <h1 className="text-2xl font-bold">Home</h1>
         
         <Tabs defaultValue="global" className="w-full">
-          <TabsList className="w-full">
+          <TabsList className="w-full dark:bg-nostr-cardBg">
             <TabsTrigger value="global" className="flex-1">Global</TabsTrigger>
             <TabsTrigger value="following" className="flex-1">Following</TabsTrigger>
           </TabsList>

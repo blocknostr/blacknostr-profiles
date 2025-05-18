@@ -90,19 +90,19 @@
   }
 
   .nostr-button-primary {
-    @apply bg-nostr-primary text-white hover:bg-nostr-primary/90;
+    @apply bg-nostr-blue text-white hover:bg-nostr-blue/90;
   }
 
   .nostr-button-secondary {
-    @apply bg-nostr-secondary text-white hover:bg-nostr-secondary/90;
+    @apply bg-nostr-blue text-white hover:bg-nostr-blue/90;
   }
 
   .nostr-link {
-    @apply text-nostr-primary hover:text-nostr-primary/90 transition-colors;
+    @apply text-nostr-blue hover:text-nostr-blue/90 transition-colors;
   }
 
   .dark .glass-morphism {
-    @apply backdrop-blur-xl bg-nostr-dark/30 border border-white/10 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.5)];
+    @apply backdrop-blur-xl bg-black/30 border border-white/10 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.5)];
   }
   
   .dark .text-gradient {
