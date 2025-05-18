@@ -21,7 +21,7 @@ export default function NoteFeed({ pubkey }: NoteFeedProps) {
   useEffect(() => {
     const loadNotes = async () => {
       setIsLoading(true);
-      await fetchNotes(pubkey);
+      await fetchNotes(pubkey, 15);
       setIsLoading(false);
     };
 
