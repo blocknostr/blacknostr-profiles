@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
@@ -338,10 +339,28 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateProfile = async (updatedProfile: NostrProfile): Promise<boolean> => {
-    if (!pool || !privateKey || !publicKey) {
+    if (!pool) {
+      toast({
+        title: "Connection error",
+        description: "Cannot connect to NOSTR network",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    if (!isAuthenticated) {
       toast({
         title: "Authentication required",
         description: "You must be logged in to update your profile",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    if (!publicKey) {
+      toast({
+        title: "Missing public key",
+        description: "Your public key is not available",
         variant: "destructive"
       });
       return false;
@@ -359,8 +378,8 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         created_at: Math.floor(Date.now() / 1000),
         tags: [],
         content: content,
-        id: '', // Placeholder, will be set below
-        sig: '', // Placeholder, will be set below
+        id: '', // Will be set below
+        sig: '', // Will be set below
       };
 
       // Calculate id from event data
@@ -368,14 +387,24 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       // If using extension, sign with it
       if (window.nostr) {
-        const signedEvent = await window.nostr.signEvent(event);
-        
-        // Publish to relays
-        await Promise.all(
-          relays
-            .filter(relay => relay.write)
-            .map(relay => pool.publish([relay.url], signedEvent))
-        );
+        try {
+          const signedEvent = await window.nostr.signEvent(event);
+          
+          // Publish to relays
+          await Promise.all(
+            relays
+              .filter(relay => relay.write)
+              .map(relay => pool.publish([relay.url], signedEvent))
+          );
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          toast({
+            title: "Extension signing failed",
+            description: "Please check your NOSTR browser extension",
+            variant: "destructive"
+          });
+          return false;
+        }
       } else if (privateKey) {
         // Sign with local private key
         event.sig = signEvent(event, privateKey);
@@ -386,6 +415,13 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             .filter(relay => relay.write)
             .map(relay => pool.publish([relay.url], event))
         );
+      } else {
+        toast({
+          title: "Signing error",
+          description: "No private key or extension available for signing",
+          variant: "destructive"
+        });
+        return false;
       }
 
       // Update local state

@@ -1,11 +1,11 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { NostrProfile } from "@/lib/nostr";
 import { useNostr } from "@/contexts/NostrContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,9 +49,9 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ open, onOpenChang
     },
   });
 
-  // Reset form values when profile changes
-  React.useEffect(() => {
-    if (profile) {
+  // Reset form values when profile changes or dialog opens
+  useEffect(() => {
+    if (profile && open) {
       form.reset({
         name: profile.name || "",
         displayName: profile.displayName || "",
@@ -63,12 +63,11 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ open, onOpenChang
         lud16: profile.lud16 || "",
       });
     }
-  }, [profile, form]);
+  }, [profile, form, open]);
 
   const onSubmit = async (values: ProfileFormValues) => {
     if (!profile) return;
     
-    // Check authentication before proceeding
     if (!isAuthenticated) {
       toast({
         title: "Authentication required",
@@ -97,6 +96,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ open, onOpenChang
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
+          <DialogDescription>Update your NOSTR profile information</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -242,7 +242,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ open, onOpenChang
             </DialogFooter>
             
             {!isAuthenticated && (
-              <div className="text-center text-destructive text-sm">
+              <div className="text-center text-destructive text-sm mt-2">
                 You must be logged in to update your profile
               </div>
             )}
