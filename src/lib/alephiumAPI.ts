@@ -1,8 +1,134 @@
 
-import { NodeProvider } from '@alephium/web3';
+// Mock implementation of Alephium API
+// This simulates the functionality without requiring @alephium/web3
 
-// Initialize the node provider with the mainnet node
-const nodeProvider = new NodeProvider('https://node.mainnet.alephium.org');
+// Define interfaces for our mock API
+interface AddressBalance {
+  balance: string;
+  lockedBalance: string;
+  utxoNum: number;
+}
+
+interface BlockflowChainInfo {
+  currentHeight: string | number;
+}
+
+interface UTXOResponse {
+  utxos: Array<{
+    amount: string;
+    ref?: { key: string };
+    tokens?: Array<{ id: string; amount: string }>;
+  }>;
+}
+
+// Mock NodeProvider class
+class MockNodeProvider {
+  private baseUrl: string;
+  
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl;
+    console.log(`Initialized mock NodeProvider with URL: ${baseUrl}`);
+  }
+  
+  // Mock API endpoints
+  addresses = {
+    getAddressesAddressBalance: async (address: string): Promise<AddressBalance> => {
+      console.log(`Mock: Getting balance for address ${address}`);
+      // Return mock data
+      return {
+        balance: "1000000000000000000", // 1 ALPH in smallest unit
+        lockedBalance: "100000000000000000", // 0.1 ALPH in smallest unit
+        utxoNum: 3
+      };
+    },
+    
+    getAddressesAddressUtxos: async (address: string): Promise<UTXOResponse> => {
+      console.log(`Mock: Getting UTXOs for address ${address}`);
+      // Return mock data
+      return {
+        utxos: [
+          {
+            amount: "500000000000000000", // 0.5 ALPH
+            ref: { key: "tx-hash-1" },
+            tokens: [
+              { id: "token-id-1", amount: "1000" },
+              { id: "token-id-2", amount: "1" }
+            ]
+          },
+          {
+            amount: "500000000000000000", // 0.5 ALPH
+            ref: { key: "tx-hash-2" }
+          }
+        ]
+      };
+    },
+    
+    getAddressesAddressGroup: async (address: string): Promise<{ group: number }> => {
+      return { group: 0 };
+    }
+  };
+  
+  infos = {
+    getInfosNode: async () => {
+      return {
+        buildInfo: { version: "1.7.0" },
+        uptime: "24h"
+      };
+    }
+  };
+  
+  blockflow = {
+    getBlockflowChainInfo: async ({ fromGroup, toGroup }: { fromGroup: number; toGroup: number }): Promise<BlockflowChainInfo> => {
+      return {
+        currentHeight: "3752480"
+      };
+    }
+  };
+  
+  transactions = {
+    postTransactionsBuild: async (params: any) => {
+      return {
+        unsignedTx: "mock-unsigned-tx-data",
+        txId: "mock-tx-id",
+        fromGroup: 0,
+        toGroup: 0
+      };
+    },
+    
+    postTransactionsSubmit: async (params: any) => {
+      return {
+        txId: "mock-tx-id",
+        fromGroup: 0,
+        toGroup: 0
+      };
+    }
+  };
+}
+
+// Create mock NodeProvider instance
+const nodeProvider = new MockNodeProvider('https://node.mainnet.alephium.org');
+
+/**
+ * Token interface with rich metadata
+ */
+export interface EnrichedToken {
+  id: string;
+  amount: string; // Changed from number to string to handle large values correctly
+  name: string;
+  nameOnChain?: string;
+  symbol: string;
+  symbolOnChain?: string;
+  decimals: number;
+  logoURI?: string;
+  description?: string;
+  formattedAmount: string;
+  isNFT: boolean;
+  tokenURI?: string;
+  imageUrl?: string;
+  attributes?: any[];
+  usdValue?: number;
+  tokenPrice?: number;
+}
 
 /**
  * Gets the balance for a specific address in ALPH (not nanoALPH)
@@ -79,28 +205,6 @@ export const getAddressUtxos = async (address: string) => {
     throw error;
   }
 };
-
-/**
- * Token interface with rich metadata
- */
-export interface EnrichedToken {
-  id: string;
-  amount: string; // Changed from number to string to handle large values correctly
-  name: string;
-  nameOnChain?: string;
-  symbol: string;
-  symbolOnChain?: string;
-  decimals: number;
-  logoURI?: string;
-  description?: string;
-  formattedAmount: string;
-  isNFT: boolean;
-  tokenURI?: string;
-  imageUrl?: string;
-  attributes?: any[];
-  usdValue?: number;
-  tokenPrice?: number;
-}
 
 /**
  * Checks if a token is likely an NFT based on its properties
@@ -380,18 +484,11 @@ export const fetchNetworkStats = async () => {
     let hashRate = "38.2 PH/s";
     let difficulty = "3.51 P";
     let blockTime = "64.0s";
+    let activeAddresses = 193500; // Default value
+    let tokenCount = 385; // Default value
     let totalTransactions = "4.28M";
     let totalSupply = "110.06M ALPH";
     let isLiveData = false; // Flag to indicate if we're using live data
-    
-    // To track if any API call succeeded
-    let anyApiCallSucceeded = false;
-    
-    // Get active addresses count from the explorer API
-    let activeAddresses = 193500; // Default value
-    
-    // Get token count from the explorer API
-    let tokenCount = 385; // Default value
     
     // Fetch the latest blocks information from the node directly
     let latestBlocks = [

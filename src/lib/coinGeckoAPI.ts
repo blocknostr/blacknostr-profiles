@@ -45,8 +45,8 @@ export async function fetchTokenBalance(ecosystem: string, address: string): Pro
   
   try {
     if (ecosystem === 'alephium' && address) {
-      // Use the new alephiumAPI to get real balance data
-      const alephiumAPI = (await import('@/lib/alephiumAPI')).default;
+      // Import dynamically to avoid circular dependencies
+      const alephiumAPI = await import('./alephiumAPI').then(module => module.default);
       const balance = await alephiumAPI.getAddressBalance(address);
       return { balance: balance.balance };
     }
@@ -61,7 +61,7 @@ export async function fetchTokenBalance(ecosystem: string, address: string): Pro
 export async function fetchAlephiumData() {
   try {
     // Import the alephiumAPI dynamically to avoid circular dependencies
-    const alephiumAPI = (await import('@/lib/alephiumAPI')).default;
+    const alephiumAPI = await import('./alephiumAPI').then(module => module.default);
     
     // Try to fetch real network stats
     try {
