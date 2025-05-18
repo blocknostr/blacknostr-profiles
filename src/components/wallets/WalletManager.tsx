@@ -78,7 +78,9 @@ const WalletManager = ({ ecosystem }: WalletManagerProps) => {
       } else if (ecosystem === "alephium") {
         // Use Alephium SDK for validation
         try {
-          if (!validateAddress(newAddress)) {
+          // validateAddress returns boolean in newer versions
+          const isAddressValid = validateAddress(newAddress);
+          if (isAddressValid === false) { // Explicitly check false
             isValid = false;
             errorMsg = "Invalid Alephium address format";
           }

@@ -6,12 +6,12 @@ import { NodeProvider, web3 } from '@alephium/web3';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 
-// Define AddressBalance type based on API response structure
+// Define AddressBalance type to match API response structure
 interface AddressBalance {
-  address: string;
+  address?: string;
   balance: string;
   lockedBalance: string;
-  numTxs: number;
+  numTxs?: number;
 }
 
 const MAINNET_NODE_URL = 'https://node.mainnet.alephium.org';
@@ -95,8 +95,14 @@ const AlephiumSection = () => {
       
       for (const wallet of wallets) {
         try {
-          const addressBalance = await nodeProvider.addresses.getAddressesAddressBalance(wallet.address);
-          fetchedBalances.push(addressBalance as AddressBalance);
+          const balance = await nodeProvider.addresses.getAddressesAddressBalance(wallet.address);
+          // Add the address property to match our interface
+          const addressBalance: AddressBalance = {
+            ...balance,
+            address: wallet.address,
+            numTxs: 0 // Default value if not provided by API
+          };
+          fetchedBalances.push(addressBalance);
         } catch (err) {
           console.error(`Error fetching balance for ${wallet.address}:`, err);
         }
