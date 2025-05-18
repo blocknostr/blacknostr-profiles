@@ -42,40 +42,39 @@ export default function CreateNote() {
     }
   };
 
+  // Simplified version for the sidebar
   return (
-    <Card className="mb-6">
-      <CardContent className="p-4">
-        <div className="flex space-x-4">
-          <Avatar>
+    <Card className="mb-2">
+      <CardContent className="p-3">
+        <div className="flex space-x-2">
+          <Avatar className="h-8 w-8">
             <AvatarImage src={profile?.picture} alt={profile?.displayName || "User"} />
             <AvatarFallback>{profile?.displayName?.charAt(0) || "U"}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
             <Textarea
               placeholder="What's happening?"
-              className="resize-none border-0 focus-visible:ring-0 p-0 min-h-20"
+              className="resize-none border-0 focus-visible:ring-0 p-0 min-h-16 text-sm"
               value={content}
               onChange={(e) => setContent(e.target.value)}
             />
           </div>
         </div>
       </CardContent>
-      <CardFooter className="p-4 pt-0 flex justify-between items-center">
-        <div className="flex space-x-2">
-          <Button variant="ghost" size="icon">
-            <Image className="h-5 w-5" />
+      <CardFooter className="p-3 pt-0 flex justify-between items-center">
+        <div className="flex space-x-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Image className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
-            <Video className="h-5 w-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Smile className="h-5 w-5" />
+          <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Smile className="h-4 w-4" />
           </Button>
         </div>
         <Button 
           onClick={handleSubmit}
           disabled={isSubmitting || !content.trim()}
-          className="nostr-button-primary"
+          className="nostr-button-primary h-8 text-xs"
+          size="sm"
         >
           Post
         </Button>

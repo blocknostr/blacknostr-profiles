@@ -2,7 +2,6 @@
 import { useNostr } from "@/contexts/NostrContext";
 import MainLayout from "@/components/layout/MainLayout";
 import { LoginForm } from "@/components/auth/LoginForm";
-import CreateNote from "@/components/feed/CreateNote";
 import NoteFeed from "@/components/feed/NoteFeed";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -43,11 +42,9 @@ const Index = () => {
             <TabsTrigger value="following" className="flex-1">Following</TabsTrigger>
           </TabsList>
           <TabsContent value="global" className="mt-4">
-            <CreateNote />
             <NoteFeed />
           </TabsContent>
           <TabsContent value="following" className="mt-4">
-            <CreateNote />
             <div className="text-center py-12 text-muted-foreground">
               <p>Your following feed will appear here.</p>
               <p>Follow some users to see their posts!</p>

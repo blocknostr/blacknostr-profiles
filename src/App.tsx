@@ -9,6 +9,14 @@ import { NostrProvider } from "@/contexts/NostrContext";
 import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import Wallets from "./pages/Wallets";
+import Notifications from "./pages/Notifications";
+import Messages from "./pages/Messages";
+import DAOs from "./pages/DAOs";
+import Articles from "./pages/Articles";
+import Notes from "./pages/Notes";
+import Games from "./pages/Games";
+import Premium from "./pages/Premium";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +30,14 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/wallets" element={<Wallets />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/daos" element={<DAOs />} />
+            <Route path="/articles" element={<Articles />} />
+            <Route path="/notes" element={<Notes />} />
+            <Route path="/games" element={<Games />} />
+            <Route path="/premium" element={<Premium />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
