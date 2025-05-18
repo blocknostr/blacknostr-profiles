@@ -81,9 +81,9 @@ const Wallets = () => {
   
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Crypto Portfolio Tracker</h1>
+          <h1 className="text-xl font-bold">Crypto Portfolio Tracker</h1>
           
           {/* Ecosystem Selector */}
           <Select value={selectedEcosystem} onValueChange={handleEcosystemChange}>
@@ -99,8 +99,8 @@ const Wallets = () => {
         </div>
 
         <Card className="dark:bg-nostr-cardBg dark:border-white/20">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-medium">
+          <CardHeader className="flex flex-row items-center justify-between py-2">
+            <CardTitle className="text-base font-medium">
               {selectedEcosystem === "bitcoin" ? "Bitcoin" : 
                selectedEcosystem === "ethereum" ? "Ethereum" : 
                "Alephium"} Portfolio
@@ -112,7 +112,7 @@ const Wallets = () => {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="gap-1.5 dark:bg-nostr-dark dark:border-white/20"
+                  className="gap-1.5 dark:bg-nostr-dark dark:border-white/20 h-8 px-2"
                   onClick={() => updateWalletCount(selectedEcosystem)} // Refresh count when dialog is opened
                 >
                   <Wallet className="h-4 w-4" />
@@ -121,25 +121,25 @@ const Wallets = () => {
               </DialogTrigger>
             </WalletDialog>
           </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="portfolio" className="mt-2">
-              <TabsList className="dark:bg-nostr-dark dark:text-white mb-4">
+          <CardContent className="pt-0">
+            <Tabs defaultValue="portfolio" className="mt-1">
+              <TabsList className="dark:bg-nostr-dark dark:text-white mb-3">
                 <TabsTrigger value="portfolio" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">My Portfolio</TabsTrigger>
                 <TabsTrigger value="dapps" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">My Dapps</TabsTrigger>
                 {selectedEcosystem === "alephium" && 
                  <TabsTrigger value="alephium" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">My Alephium</TabsTrigger>}
               </TabsList>
               
-              <TabsContent value="portfolio">
+              <TabsContent value="portfolio" className="mt-0">
                 <PortfolioOverview ecosystem={selectedEcosystem} />
               </TabsContent>
               
-              <TabsContent value="dapps">
+              <TabsContent value="dapps" className="mt-0">
                 <WalletDapps ecosystem={selectedEcosystem} />
               </TabsContent>
               
               {selectedEcosystem === "alephium" && (
-                <TabsContent value="alephium">
+                <TabsContent value="alephium" className="mt-0">
                   <AlephiumWalletProvider network="mainnet">
                     <AlephiumSection />
                   </AlephiumWalletProvider>

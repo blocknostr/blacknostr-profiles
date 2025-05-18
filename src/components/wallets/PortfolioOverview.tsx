@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,6 +6,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { fetchCoinPrice, fetchTokenBalance } from '@/lib/coinGeckoAPI';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   getTokenMetadata, 
   getFallbackTokenData, 
@@ -407,63 +407,60 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Network Status Indicator */}
-      <div className="flex items-center justify-between mb-4 bg-muted/40 p-3 rounded-lg">
+    <div className="space-y-4">
+      {/* Network Status Indicator - more compact */}
+      <div className="flex items-center justify-between mb-2 bg-muted/40 p-2 rounded-lg">
         <div className="flex items-center gap-2">
           {apiStatus.isLive ? (
-            <Wifi className="h-5 w-5 text-green-500" />
+            <Wifi className="h-4 w-4 text-green-500" />
           ) : (
-            <WifiOff className="h-5 w-5 text-amber-500" />
+            <WifiOff className="h-4 w-4 text-amber-500" />
           )}
           <div>
             <h3 className="text-sm font-medium">
-              {ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Network Data: {apiStatus.isLive ? "Live" : "Simulation"}
+              {ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Network: {apiStatus.isLive ? "Live" : "Simulation"}
             </h3>
-            <p className="text-xs text-muted-foreground">
-              Last updated: {apiStatus.lastChecked.toLocaleTimeString()}
-            </p>
           </div>
         </div>
         <div className="text-xs">
           {apiStatus.isLive ? (
             <span className="inline-flex items-center text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full">
               <div className="w-1.5 h-1.5 bg-green-600 dark:bg-green-400 rounded-full animate-pulse mr-1.5" />
-              Connected to {ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Explorer
+              Connected
             </span>
           ) : (
             <span className="inline-flex items-center text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-1 rounded-full">
               <WifiOff className="h-3 w-3 mr-1.5" />
-              Using {ecosystem} fallback data
+              Fallback Data
             </span>
           )}
         </div>
       </div>
 
-      {/* Portfolio Overview Card */}
+      {/* Portfolio Overview Card - more compact */}
       <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20">
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-1 pt-3">
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle>{ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Portfolio Overview</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-lg">{ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Portfolio</CardTitle>
+              <CardDescription className="text-xs">
                 {walletAddresses.length > 1 ? 
-                  `Combined balance of ${walletAddresses.length} ${ecosystem} wallets` : 
-                  `${ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} wallet balance`}
+                  `Combined (${walletAddresses.length} wallets)` : 
+                  `Wallet balance`}
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-                <Wallet className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-1">
+              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
+                <Wallet className="h-4 w-4 text-primary" />
               </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="mb-4">
+        <CardContent className="pt-0 pb-3">
+          <div className="mb-2">
             {loading ? (
               <div className="space-y-2">
-                <Skeleton className="h-10 w-48" />
+                <Skeleton className="h-8 w-48" />
                 <Skeleton className="h-4 w-32" />
               </div>
             ) : error ? (
@@ -471,15 +468,15 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             ) : assetPrices ? (
               <>
                 <div className="flex items-baseline">
-                  <div className="text-3xl font-bold">
+                  <div className="text-2xl font-bold">
                     {portfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
-                  <div className="ml-2 text-lg font-medium text-primary">USD</div>
+                  <div className="ml-2 text-base font-medium text-primary">USD</div>
                 </div>
                 
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2">
                   <div className="text-sm font-medium flex items-center gap-1">
-                    <DollarSign className="h-3.5 w-3.5" />
+                    <DollarSign className="h-3 w-3" />
                     {assetPrices.price.toLocaleString()} {assetPrices.symbol}/USD
                   </div>
                   <div 
@@ -488,15 +485,15 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                     }`}
                   >
                     {assetPrices.change24h >= 0 ? (
-                      <ArrowUp className="h-3 w-3 mr-1" />
+                      <ArrowUp className="h-2.5 w-2.5 mr-0.5" />
                     ) : (
-                      <ArrowDown className="h-3 w-3 mr-1" />
+                      <ArrowDown className="h-2.5 w-2.5 mr-0.5" />
                     )}
                     {Math.abs(assetPrices.change24h).toFixed(2)}% (24h)
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <span>{ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Tokens:</span>
                   <span className="font-medium">{totalTokenCount}</span>
                   {tokens.length < totalTokenCount && (
@@ -509,30 +506,30 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             )}
           </div>
           
-          {/* Portfolio Chart */}
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <div className="text-sm font-medium">Portfolio Value</div>
+          {/* Portfolio Chart - reduced height */}
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <div className="text-xs font-medium">Portfolio Value</div>
               <div className="flex items-center">
-                <div className="flex space-x-1 rounded-lg border p-1 mr-2">
+                <div className="flex space-x-1 rounded-lg border p-0.5 mr-1">
                   <button 
-                    className={`px-2 py-0.5 text-xs rounded-md transition ${chartType === 'line' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
+                    className={`px-1.5 py-0.5 text-[10px] rounded-md transition ${chartType === 'line' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
                     onClick={() => setChartType('line')}
                   >
                     Line
                   </button>
                   <button 
-                    className={`px-2 py-0.5 text-xs rounded-md transition ${chartType === 'pie' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
+                    className={`px-1.5 py-0.5 text-[10px] rounded-md transition ${chartType === 'pie' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
                     onClick={() => setChartType('pie')}
                   >
                     Allocation
                   </button>
                 </div>
-                <div className="flex space-x-1 rounded-lg border p-1">
+                <div className="flex space-x-1 rounded-lg border p-0.5">
                   {['7d', '30d', '90d'].map(timeframe => (
                     <button 
                       key={timeframe}
-                      className={`px-2 py-0.5 text-xs rounded-md transition ${selectedTimeframe === timeframe ? 'bg-primary text-white' : 'hover:bg-muted'}`}
+                      className={`px-1.5 py-0.5 text-[10px] rounded-md transition ${selectedTimeframe === timeframe ? 'bg-primary text-white' : 'hover:bg-muted'}`}
                       onClick={() => setSelectedTimeframe(timeframe)}
                     >
                       {timeframe}
@@ -542,12 +539,13 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
               </div>
             </div>
             
-            <div className="h-[250px]">
+            {/* Reduced chart height */}
+            <div className="h-[180px]">
               {chartType === 'line' ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={priceHistoryData}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                    margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
                   >
                     <defs>
                       <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
@@ -560,16 +558,17 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                       tickFormatter={formatDate}
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
                       padding={{ left: 10 }}
+                      height={15}
                     />
                     <YAxis 
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
                       tickFormatter={(value) => `$${value}`}
-                      padding={{ top: 20 }}
-                      width={60}
+                      width={40}
+                      padding={{ top: 5 }}
                     />
                     <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
                     <Tooltip 
@@ -598,15 +597,15 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <ChartContainer config={chartConfig} className="h-56">
+                <ChartContainer config={chartConfig} className="h-[180px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={pieData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
+                        innerRadius={45}
+                        outerRadius={65}
                         paddingAngle={4}
                         dataKey="value"
                         nameKey="name"
@@ -638,169 +637,182 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         </CardContent>
       </Card>
 
-      {/* Assets Section with Tabs */}
+      {/* Assets Section with Tabs - more compact with scrollable content */}
       <Card>
-        <CardHeader>
-          <CardTitle>My Assets</CardTitle>
+        <CardHeader className="py-2">
+          <CardTitle className="text-base">My Assets</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 pb-1">
           <Tabs defaultValue="tokens" className="w-full">
-            <TabsList className="grid grid-cols-3 max-w-xs mb-4">
+            <TabsList className="grid grid-cols-3 max-w-xs mx-3 mb-2">
               <TabsTrigger value="tokens">Tokens</TabsTrigger>
               <TabsTrigger value="nfts">NFTs</TabsTrigger>
               <TabsTrigger value="transactions">Transactions</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="tokens" className="mt-0">
+            <TabsContent value="tokens" className="mt-0 px-3">
               <div className="rounded-lg border overflow-hidden">
-                <div className="grid grid-cols-4 gap-2 font-medium text-sm text-muted-foreground px-4 py-3 bg-muted/40">
+                <div className="grid grid-cols-4 gap-2 font-medium text-xs text-muted-foreground px-2 py-2 bg-muted/40">
                   <div>Token</div>
                   <div className="text-right">Price</div>
                   <div className="text-right">Balance</div>
                   <div className="text-right">Value</div>
                 </div>
-                <div className="divide-y divide-border">
-                  {tokens.length > 0 ? (
-                    tokens.map((token, index) => (
-                      <div 
-                        key={index} 
-                        className="grid grid-cols-4 gap-2 px-4 py-3 hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          {token.logoURI ? (
-                            <img 
-                              src={token.logoURI} 
-                              alt={token.symbol} 
-                              className="w-6 h-6 rounded-full" 
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/alephium/token-list/master/logos/unknown.png';
-                              }}
-                            />
-                          ) : (
-                            <div 
-                              className="w-6 h-6 rounded-full" 
-                              style={{ backgroundColor: token.color }}
-                            ></div>
-                          )}
-                          <div>
-                            <div className="font-medium">{token.symbol}</div>
-                            <div className="text-xs text-muted-foreground truncate max-w-[150px]">
-                              {token.name}
+                
+                {/* Added ScrollArea for token list with fixed height */}
+                <ScrollArea className="h-[180px]">
+                  <div className="divide-y divide-border">
+                    {tokens.length > 0 ? (
+                      tokens.map((token, index) => (
+                        <div 
+                          key={index} 
+                          className="grid grid-cols-4 gap-2 px-2 py-2 hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            {token.logoURI ? (
+                              <img 
+                                src={token.logoURI} 
+                                alt={token.symbol} 
+                                className="w-5 h-5 rounded-full" 
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/alephium/token-list/master/logos/unknown.png';
+                                }}
+                              />
+                            ) : (
+                              <div 
+                                className="w-5 h-5 rounded-full" 
+                                style={{ backgroundColor: token.color }}
+                              ></div>
+                            )}
+                            <div>
+                              <div className="font-medium text-xs">{token.symbol}</div>
+                              <div className="text-[10px] text-muted-foreground truncate max-w-[110px]">
+                                {token.name}
+                              </div>
                             </div>
                           </div>
+                          <div className="text-right self-center text-xs">
+                            {token.id === 'other-tokens' ? (
+                              <span className="text-[10px] text-muted-foreground">Various</span>
+                            ) : (
+                              <div>
+                                <div>${(token.value / token.amount).toFixed(2)}</div>
+                                {token.priceSource === 'estimate' && (
+                                  <div className="text-[10px] text-muted-foreground">Est.</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right self-center text-xs">
+                            {token.id === 'other-tokens' 
+                              ? `${token.amount} tokens` 
+                              : formatTokenAmount(
+                                  token.rawAmount || token.amount.toString(), 
+                                  token.decimals, 
+                                  token.symbol === "ALPH" ? 8 : undefined
+                                )
+                            }
+                          </div>
+                          <div className="text-right self-center font-medium text-xs">
+                            ${token.value.toLocaleString()}
+                          </div>
                         </div>
-                        <div className="text-right self-center">
-                          {token.id === 'other-tokens' ? (
-                            <span className="text-xs text-muted-foreground">Various</span>
-                          ) : (
-                            <div>
-                              <div>${(token.value / token.amount).toFixed(2)}</div>
-                              {token.priceSource === 'estimate' && (
-                                <div className="text-xs text-muted-foreground">Est.</div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right self-center">
-                          {token.id === 'other-tokens' 
-                            ? `${token.amount} tokens` 
-                            : formatTokenAmount(
-                                token.rawAmount || token.amount.toString(), 
-                                token.decimals, 
-                                token.symbol === "ALPH" ? 8 : undefined
-                              )
-                          }
-                        </div>
-                        <div className="text-right self-center font-medium">
-                          ${token.value.toLocaleString()}
-                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+                        {loading ? "Loading token data..." : "No tokens found. Add wallet addresses to see your tokens."}
                       </div>
-                    ))
-                  ) : (
-                    <div className="px-4 py-8 text-center text-muted-foreground">
-                      {loading ? "Loading token data..." : "No tokens found. Add wallet addresses to see your tokens."}
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                </ScrollArea>
               </div>
             </TabsContent>
             
             <TabsContent value="nfts" className="mt-0">
-              <div className="text-center py-10 text-muted-foreground">
-                <Coins className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                <h3 className="text-lg font-medium">No NFTs Found</h3>
-                <p className="mt-2">Connect a wallet with NFTs to view them here</p>
+              <div className="text-center py-6 text-muted-foreground">
+                <Coins className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                <h3 className="text-sm font-medium">No NFTs Found</h3>
+                <p className="text-xs mt-1">Connect a wallet with NFTs to view them here</p>
               </div>
             </TabsContent>
             
-            <TabsContent value="transactions" className="mt-0">
+            <TabsContent value="transactions" className="mt-0 px-3">
               {tokens.some(t => t.transactions && t.transactions.length > 0) ? (
                 <div className="rounded-lg border overflow-hidden">
-                  <div className="grid grid-cols-3 gap-2 font-medium text-sm text-muted-foreground px-4 py-3 bg-muted/40">
+                  <div className="grid grid-cols-3 gap-2 font-medium text-xs text-muted-foreground px-3 py-2 bg-muted/40">
                     <div>Transaction</div>
                     <div>Token</div>
                     <div className="text-right">Time</div>
                   </div>
-                  <div className="divide-y divide-border max-h-[300px] overflow-y-auto">
-                    {tokens
-                      .filter(t => t.transactions && t.transactions.length > 0)
-                      .flatMap(token => 
-                        (token.transactions || []).map((tx: any, i: number) => ({
-                          ...tx,
-                          tokenSymbol: token.symbol,
-                          tokenId: token.id,
-                          tokenLogoURI: token.logoURI,
-                          tokenColor: token.color
-                        }))
-                      )
-                      .sort((a: any, b: any) => {
-                        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-                        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-                        return timeB - timeA; // newest first
-                      })
-                      .slice(0, 10) // Show only the 10 most recent transactions
-                      .map((tx: any, i: number) => (
-                        <div 
-                          key={i} 
-                          className="grid grid-cols-3 gap-2 px-4 py-3 hover:bg-muted/30 transition-colors"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-primary"></div>
-                            <span className="font-mono text-xs truncate max-w-[120px]">
-                              {tx.hash?.substring(0, 8) || `TX-${i}`}...
-                            </span>
+                  
+                  {/* Added ScrollArea for transactions with fixed height */}
+                  <ScrollArea className="h-[180px]">
+                    <div className="divide-y divide-border">
+                      {tokens
+                        .filter(t => t.transactions && t.transactions.length > 0)
+                        .flatMap(token => 
+                          (token.transactions || []).map((tx: any, i: number) => ({
+                            ...tx,
+                            tokenSymbol: token.symbol,
+                            tokenId: token.id,
+                            tokenLogoURI: token.logoURI,
+                            tokenColor: token.color
+                          }))
+                        )
+                        .sort((a: any, b: any) => {
+                          const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                          const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                          return timeB - timeA; // newest first
+                        })
+                        .slice(0, 10) // Show only the 10 most recent transactions
+                        .map((tx: any, i: number) => (
+                          <div 
+                            key={i} 
+                            className="grid grid-cols-3 gap-2 px-3 py-2 hover:bg-muted/30 transition-colors"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                              <span className="font-mono text-[10px] truncate max-w-[100px]">
+                                {tx.hash?.substring(0, 8) || `TX-${i}`}...
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {tx.tokenLogoURI ? (
+                                <img 
+                                  src={tx.tokenLogoURI}
+                                  alt={tx.tokenSymbol} 
+                                  className="w-3 h-3 rounded-full" 
+                                />
+                              ) : (
+                                <div 
+                                  className="w-3 h-3 rounded-full" 
+                                  style={{ backgroundColor: tx.tokenColor }}
+                                ></div>
+                              )}
+                              <span className="text-xs">{tx.tokenSymbol}</span>
+                            </div>
+                            <div className="text-right text-[10px] text-muted-foreground">
+                              {tx.timestamp 
+                                ? new Date(tx.timestamp).toLocaleString(undefined, {
+                                    month: 'numeric', 
+                                    day: 'numeric',
+                                    hour: '2-digit', 
+                                    minute: '2-digit'
+                                  }) 
+                                : new Date().toLocaleString()
+                              }
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {tx.tokenLogoURI ? (
-                              <img 
-                                src={tx.tokenLogoURI}
-                                alt={tx.tokenSymbol} 
-                                className="w-4 h-4 rounded-full" 
-                              />
-                            ) : (
-                              <div 
-                                className="w-4 h-4 rounded-full" 
-                                style={{ backgroundColor: tx.tokenColor }}
-                              ></div>
-                            )}
-                            <span>{tx.tokenSymbol}</span>
-                          </div>
-                          <div className="text-right text-xs text-muted-foreground">
-                            {tx.timestamp 
-                              ? new Date(tx.timestamp).toLocaleString() 
-                              : new Date().toLocaleString()
-                            }
-                          </div>
-                        </div>
-                      ))
-                    }
-                  </div>
+                        ))
+                      }
+                    </div>
+                  </ScrollArea>
                 </div>
               ) : (
-                <div className="text-center py-10 text-muted-foreground">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                  <h3 className="text-lg font-medium">No Transactions Found</h3>
-                  <p className="mt-2">Recent transactions will appear here</p>
+                <div className="text-center py-6 text-muted-foreground">
+                  <TrendingUp className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                  <h3 className="text-sm font-medium">No Transactions Found</h3>
+                  <p className="text-xs mt-1">Recent transactions will appear here</p>
                 </div>
               )}
             </TabsContent>
