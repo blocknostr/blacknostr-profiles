@@ -24,4 +24,12 @@ export default defineConfig(({ mode }) => ({
     // This provides Buffer for browser environment
     global: 'globalThis',
   },
+  optimizeDeps: {
+    esbuildOptions: {
+      // Node.js global to browser globalThis
+      define: {
+        global: 'globalThis',
+      },
+    },
+  },
 }));
