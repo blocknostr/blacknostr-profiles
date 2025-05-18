@@ -4,9 +4,14 @@ import { useNostr } from "@/contexts/NostrContext";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Repeat, Share } from "lucide-react";
+import { Heart, MessageSquare, Repeat, Share, Image, Video } from "lucide-react";
 import { NostrNote, NostrProfile, formatTimestamp } from "@/lib/nostr";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
+
+interface MediaContent {
+  type: 'image' | 'video';
+  url: string;
+}
 
 interface NoteCardProps {
   note: NostrNote;
@@ -16,8 +21,67 @@ interface NoteCardProps {
 export default function NoteCard({ note, authorProfile }: NoteCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isReposted, setIsReposted] = useState(false);
-  const [stats, setStats] = useState({ likes: 0, replies: 0, reposts: 0 });
-  const { likeNote, repostNote, checkIfLiked, checkIfReposted, getNoteStats } = useNostr();
+  const [likeCount, setLikeCount] = useState(0);
+  const [repostCount, setRepostCount] = useState(0);
+  const [replyCount, setReplyCount] = useState(0);
+  const [mediaContent, setMediaContent] = useState<MediaContent[]>([]);
+  
+  const { likeNote, repostNote, replyToNote, checkIfLiked, checkIfReposted, getNoteStats } = useNostr();
+
+  useEffect(() => {
+    // Check if the current user has liked or reposted the note
+    const checkInteractions = async () => {
+      if (note.id) {
+        const isLiked = await checkIfLiked(note.id);
+        const isReposted = await checkIfReposted(note.id);
+        setIsLiked(isLiked);
+        setIsReposted(isReposted);
+      }
+    };
+
+    // Get note stats (likes, reposts, replies count)
+    const getStats = async () => {
+      if (note.id) {
+        const stats = await getNoteStats(note.id);
+        setLikeCount(stats.likeCount);
+        setRepostCount(stats.repostCount);
+        setReplyCount(stats.replyCount);
+      }
+    };
+
+    // Extract media content from note
+    const extractMedia = () => {
+      const mediaList: MediaContent[] = [];
+      
+      // Look for URLs in content
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const urls = note.content.match(urlRegex) || [];
+      
+      // Check if URLs are media
+      urls.forEach(url => {
+        if (url.match(/\.(jpeg|jpg|gif|png)$/)) {
+          mediaList.push({ type: 'image', url });
+        } else if (url.match(/\.(mp4|webm|ogg)$/)) {
+          mediaList.push({ type: 'video', url });
+        }
+      });
+      
+      // Check note tags for media
+      note.tags.forEach(tag => {
+        if (tag[0] === 'media' && tag[1]) {
+          const url = tag[1];
+          const type = tag[2] === 'video' ? 'video' : 'image';
+          mediaList.push({ type, url });
+        }
+      });
+      
+      setMediaContent(mediaList);
+    };
+
+    checkInteractions();
+    getStats();
+    extractMedia();
+  }, [note, checkIfLiked, checkIfReposted, getNoteStats]);
 
   // Format relative time (e.g. "2h ago")
   const formatRelativeTime = (timestamp: number) => {
@@ -33,34 +97,11 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
     return formatTimestamp(timestamp);
   };
 
-  useEffect(() => {
-    const loadNoteStatus = async () => {
-      const liked = await checkIfLiked(note.id);
-      const reposted = await checkIfReposted(note.id);
-      setIsLiked(liked);
-      setIsReposted(reposted);
-      
-      const noteStats = await getNoteStats(note.id);
-      if (noteStats) {
-        setStats({
-          likes: noteStats.likes,
-          replies: noteStats.replies,
-          reposts: noteStats.reposts
-        });
-      }
-    };
-    
-    loadNoteStatus();
-  }, [note.id, checkIfLiked, checkIfReposted, getNoteStats]);
-
   const handleLike = async () => {
     const success = await likeNote(note.id);
     if (success) {
       setIsLiked(!isLiked);
-      setStats(prev => ({
-        ...prev,
-        likes: isLiked ? prev.likes - 1 : prev.likes + 1
-      }));
+      setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
     }
   };
 
@@ -68,24 +109,17 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
     const success = await repostNote(note.id);
     if (success) {
       setIsReposted(!isReposted);
-      setStats(prev => ({
-        ...prev,
-        reposts: isReposted ? prev.reposts - 1 : prev.reposts + 1
-      }));
+      setRepostCount(prev => isReposted ? prev - 1 : prev + 1);
     }
   };
 
   const handleReply = async () => {
-    // Reply functionality will be implemented later
-    console.log("Reply to:", note.id);
+    await replyToNote(note.id);
   };
 
   const displayName = authorProfile?.displayName || authorProfile?.name || "Anonymous";
   const username = authorProfile?.npub ? `${authorProfile.npub.substring(0, 8)}...` : "";
   const avatarUrl = authorProfile?.picture || "";
-
-  // Parse content for media (images, videos, etc.) - NIP-23 compliance
-  const { content, mediaItems } = parseContent(note.content);
 
   return (
     <Card className="mb-4 hover:bg-accent/5 transition-colors">
@@ -109,24 +143,30 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-2">
-        <p className="whitespace-pre-wrap break-words">{content}</p>
-
-        {mediaItems.length > 0 && (
-          <div className="mt-3 max-h-96 overflow-hidden rounded-md">
-            <ScrollArea className="h-full w-full">
-              {mediaItems.map((media, index) => (
-                <RenderMedia key={index} media={media} />
-              ))}
-            </ScrollArea>
-          </div>
-        )}
-
-        {note.tags.length > 0 && hasHashtags(note.tags) && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {extractHashtags(note.tags).map((tag, i) => (
-              <span key={i} className="text-xs bg-muted px-2 py-1 rounded-full text-primary">
-                #{tag}
-              </span>
+        <p className="whitespace-pre-wrap">{note.content}</p>
+        
+        {mediaContent.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {mediaContent.map((media, index) => (
+              <div key={index} className="rounded-md overflow-hidden">
+                {media.type === 'image' ? (
+                  <AspectRatio ratio={16 / 9}>
+                    <img 
+                      src={media.url} 
+                      alt="Note attachment" 
+                      className="w-full h-full object-cover"
+                    />
+                  </AspectRatio>
+                ) : (
+                  <AspectRatio ratio={16 / 9}>
+                    <video 
+                      src={media.url} 
+                      controls
+                      className="w-full h-full object-contain"
+                    />
+                  </AspectRatio>
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -134,11 +174,11 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
       <CardFooter className="p-2 pt-0 flex justify-between">
         <Button 
           variant="ghost" 
-          size="sm" 
+          size="sm"
           onClick={handleReply}
         >
           <MessageSquare className="h-4 w-4 mr-1" />
-          <span className="text-xs">{stats.replies > 0 ? stats.replies : ""}</span>
+          <span className="text-xs">{replyCount > 0 ? replyCount : ''} Reply</span>
         </Button>
         <Button 
           variant="ghost" 
@@ -147,7 +187,7 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
           onClick={handleRepost}
         >
           <Repeat className="h-4 w-4 mr-1" />
-          <span className="text-xs">{stats.reposts > 0 ? stats.reposts : ""}</span>
+          <span className="text-xs">{repostCount > 0 ? repostCount : ''} Repost</span>
         </Button>
         <Button 
           variant="ghost" 
@@ -156,101 +196,13 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
           onClick={handleLike}
         >
           <Heart className="h-4 w-4 mr-1" />
-          <span className="text-xs">{stats.likes > 0 ? stats.likes : ""}</span>
+          <span className="text-xs">{likeCount > 0 ? likeCount : ''} Like</span>
         </Button>
         <Button variant="ghost" size="sm">
           <Share className="h-4 w-4 mr-1" />
-          <span className="text-xs"></span>
+          <span className="text-xs">Share</span>
         </Button>
       </CardFooter>
     </Card>
   );
-}
-
-// Helper function to parse content and extract media URLs
-function parseContent(content: string): { content: string; mediaItems: MediaItem[] } {
-  const urlRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|mp4|webm|mov|mp3|wav))/gi;
-  const mediaItems: MediaItem[] = [];
-  let matches;
-  let lastIndex = 0;
-  let processedContent = content;
-  
-  // Find all media URLs in the content
-  while ((matches = urlRegex.exec(content)) !== null) {
-    const url = matches[0];
-    const type = getMediaType(url);
-    
-    if (type !== 'unknown') {
-      mediaItems.push({ url, type });
-      // Remove the URL from the content to avoid displaying it twice
-      processedContent = processedContent.replace(url, '');
-    }
-  }
-  
-  return { content: processedContent.trim(), mediaItems };
-}
-
-type MediaType = 'image' | 'video' | 'audio' | 'unknown';
-
-interface MediaItem {
-  url: string;
-  type: MediaType;
-}
-
-function getMediaType(url: string): MediaType {
-  const extension = url.split('.').pop()?.toLowerCase() || '';
-  
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
-    return 'image';
-  } else if (['mp4', 'webm', 'mov'].includes(extension)) {
-    return 'video';
-  } else if (['mp3', 'wav', 'ogg'].includes(extension)) {
-    return 'audio';
-  }
-  
-  return 'unknown';
-}
-
-function RenderMedia({ media }: { media: MediaItem }) {
-  switch (media.type) {
-    case 'image':
-      return (
-        <img 
-          src={media.url} 
-          alt="Media content" 
-          className="max-w-full rounded-md" 
-          loading="lazy"
-        />
-      );
-    case 'video':
-      return (
-        <video 
-          src={media.url} 
-          controls 
-          className="max-w-full rounded-md" 
-          preload="metadata"
-        />
-      );
-    case 'audio':
-      return (
-        <audio 
-          src={media.url} 
-          controls 
-          className="w-full" 
-          preload="metadata"
-        />
-      );
-    default:
-      return null;
-  }
-}
-
-function hasHashtags(tags: string[][]): boolean {
-  return tags.some(tag => tag[0] === 't');
-}
-
-function extractHashtags(tags: string[][]): string[] {
-  return tags
-    .filter(tag => tag[0] === 't' && tag[1])
-    .map(tag => tag[1]);
 }

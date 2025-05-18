@@ -2,23 +2,6 @@
 import { generatePrivateKey, getPublicKey, nip19, verifySignature } from 'nostr-tools';
 import type { Event as NostrEvent } from 'nostr-tools';
 
-// Constants for event kinds defined in NIPs
-export const EVENT_KINDS = {
-  METADATA: 0,
-  TEXT_NOTE: 1,
-  RECOMMEND_SERVER: 2,
-  CONTACTS: 3,
-  ENCRYPTED_DIRECT_MESSAGE: 4,
-  DELETION: 5,
-  REACTION: 7,
-  CHANNEL_CREATION: 40,
-  CHANNEL_METADATA: 41,
-  CHANNEL_MESSAGE: 42,
-  CHANNEL_HIDE_MESSAGE: 43,
-  CHANNEL_MUTE_USER: 44,
-  REPOST: 6
-};
-
 // Types based on NOSTR Implementation Possibilities (NIPs)
 export type NostrProfile = {
   pubkey: string;
@@ -44,12 +27,6 @@ export type NostrMetadata = {
   lud16?: string;
 };
 
-export type NostrStats = {
-  likes: number;
-  replies: number;
-  reposts: number;
-};
-
 export type NostrNote = {
   id: string;
   pubkey: string;
@@ -59,6 +36,12 @@ export type NostrNote = {
   content: string;
   sig: string;
   nip19Id?: string;
+};
+
+export type NostrStats = {
+  likeCount: number;
+  repostCount: number;
+  replyCount: number;
 };
 
 export type NostrRelayConfig = {
@@ -80,6 +63,27 @@ export const DEFAULT_RELAYS: NostrRelayConfig[] = [
   { url: 'wss://purplepag.es', read: true, write: true },
   { url: 'wss://relay.nostr.bg', read: true, write: true },
 ];
+
+// NOSTR Event Kinds (NIPs)
+export const EVENT_KINDS = {
+  METADATA: 0,      // NIP-01: Profile metadata
+  TEXT_NOTE: 1,     // NIP-01: Text note
+  RECOMMEND_SERVER: 2, // NIP-01: Recommend relay
+  CONTACTS: 3,      // NIP-02: Contacts list
+  ENCRYPTED_DM: 4,  // NIP-04: Encrypted direct message
+  DELETE: 5,        // NIP-09: Event deletion
+  REPOST: 6,        // NIP-18: Repost
+  REACTION: 7,      // NIP-25: Reactions (like)
+  BADGE_AWARD: 8,   // NIP-58: Badges
+  CHANNEL_CREATE: 40, // NIP-28: Channel creation
+  CHANNEL_METADATA: 41, // NIP-28: Channel metadata
+  CHANNEL_MESSAGE: 42, // NIP-28: Channel message
+  CHANNEL_HIDE: 43, // NIP-28: Hide channel message
+  CHANNEL_MUTE: 44, // NIP-28: Mute user in channel
+  FILE_METADATA: 1063, // NIP-94: File metadata
+  LIVE_CHAT: 1311, // NIP-53: Live chat message
+  LONG_FORM: 30023, // NIP-23: Long-form content
+};
 
 // Local storage keys
 export const NOSTR_KEYS = {
@@ -190,6 +194,35 @@ export const profileToMetadata = (profile: NostrProfile): NostrMetadata => {
   };
 };
 
+// Extract media URLs from content and tags
+export const extractMediaFromNote = (note: NostrNote): Array<{ type: string, url: string }> => {
+  const media: Array<{ type: string, url: string }> = [];
+  
+  // Extract from content
+  const urlRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|mp4|webm|ogg))/gi;
+  const contentUrls = note.content.match(urlRegex) || [];
+  
+  contentUrls.forEach(url => {
+    const extension = url.split('.').pop()?.toLowerCase();
+    const type = ['jpg', 'jpeg', 'png', 'gif'].includes(extension || '') 
+      ? 'image' 
+      : 'video';
+    media.push({ type, url });
+  });
+  
+  // Extract from tags
+  note.tags.forEach(tag => {
+    if (tag[0] === 'media' && tag[1]) {
+      const url = tag[1];
+      const type = tag.length > 2 ? tag[2] : 
+        url.match(/\.(jpg|jpeg|png|gif)$/i) ? 'image' : 'video';
+      media.push({ type, url });
+    }
+  });
+  
+  return media;
+};
+
 // Parse note content
 export const parseNote = (event: NostrEvent): NostrNote => {
   return {
@@ -204,12 +237,12 @@ export const parseNote = (event: NostrEvent): NostrNote => {
   };
 };
 
-// Verify event signature (NIP-01 compliance)
+// Verify event signature (NIP-01)
 export const verifyEventSignature = (event: NostrEvent): boolean => {
   try {
     return verifySignature(event);
-  } catch (error) {
-    console.error('Error verifying event signature:', error);
+  } catch (e) {
+    console.error('Error verifying signature:', e);
     return false;
   }
 };

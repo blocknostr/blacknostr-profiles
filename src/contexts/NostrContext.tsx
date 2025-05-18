@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
+import { SimplePool, Event, getEventHash, signEvent, getPublicKey as nostrGetPublicKey } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
 import {
   DEFAULT_RELAYS,
   NostrRelayConfig,
   NostrProfile,
   NostrNote,
+  NostrStats,
   NostrMetadata,
   getKeys,
   generateKeys,
@@ -14,15 +15,10 @@ import {
   parseNote,
   profileToMetadata,
   NOSTR_KEYS,
-  hexToNpub
+  hexToNpub,
+  EVENT_KINDS,
+  verifyEventSignature
 } from '@/lib/nostr';
-
-// Add NostrStats type to support note statistics
-export type NostrStats = {
-  likes: number;
-  replies: number;
-  reposts: number;
-};
 
 interface NostrContextType {
   isLoading: boolean;
@@ -47,6 +43,7 @@ interface NostrContextType {
   unfollowUser: (pubkey: string) => Promise<boolean>;
   likeNote: (noteId: string) => Promise<boolean>;
   repostNote: (noteId: string) => Promise<boolean>;
+  replyToNote: (noteId: string, content?: string) => Promise<boolean>;
   checkIfLiked: (noteId: string) => Promise<boolean>;
   checkIfReposted: (noteId: string) => Promise<boolean>;
   getNoteStats: (noteId: string) => Promise<NostrStats>;
@@ -110,8 +107,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
 
           // Fetch user's notes
-          const userNotes = await fetchNotes(savedPublicKey);
-          setNotes(userNotes);
+          await fetchNotes(savedPublicKey, 15);
         }
       } catch (error) {
         console.error('Error initializing NOSTR:', error);
@@ -133,7 +129,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  const login = (pubkey?: string) => {
+  const login = async (pubkey?: string) => {
     try {
       // If pubkey is provided, use extension login
       if (pubkey) {
@@ -150,15 +146,12 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
 
         // Fetch profile and notes
-        fetchProfile(pubkey).then(userProfile => {
-          if (userProfile) {
-            setProfile(userProfile);
-          }
-        });
+        const userProfile = await fetchProfile(pubkey);
+        if (userProfile) {
+          setProfile(userProfile);
+        }
 
-        fetchNotes(pubkey).then(userNotes => {
-          setNotes(userNotes);
-        });
+        await fetchNotes(pubkey, 15);
         
         return;
       }
@@ -181,20 +174,17 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       toast({
         title: 'Logged in successfully',
-        description: 'Welcome back to NOSTR',
+        description: 'Welcome back to BlockNostr',
       });
 
       // Fetch profile and notes
-      fetchProfile(savedPublicKey).then(userProfile => {
-        if (userProfile) {
-          setProfile(userProfile);
-          setNpub(userProfile.npub || null);
-        }
-      });
+      const userProfile = await fetchProfile(savedPublicKey);
+      if (userProfile) {
+        setProfile(userProfile);
+        setNpub(userProfile.npub || null);
+      }
 
-      fetchNotes(savedPublicKey).then(userNotes => {
-        setNotes(userNotes);
-      });
+      await fetchNotes(savedPublicKey, 15);
     } catch (error) {
       console.error('Error logging in:', error);
       toast({
@@ -205,10 +195,10 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const loginWithPrivateKey = (inputPrivateKey: string) => {
+  const loginWithPrivateKey = async (inputPrivateKey: string) => {
     try {
       // Get public key from private key
-      const derivedPublicKey = getPublicKey(inputPrivateKey);
+      const derivedPublicKey = nostrGetPublicKey(inputPrivateKey);
       
       // Save keys
       saveKeys(inputPrivateKey);
@@ -220,19 +210,16 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       toast({
         title: 'Logged in successfully',
-        description: 'Welcome to NOSTR',
+        description: 'Welcome to BlockNostr',
       });
 
       // Fetch profile and notes
-      fetchProfile(derivedPublicKey).then(userProfile => {
-        if (userProfile) {
-          setProfile(userProfile);
-        }
-      });
+      const userProfile = await fetchProfile(derivedPublicKey);
+      if (userProfile) {
+        setProfile(userProfile);
+      }
 
-      fetchNotes(derivedPublicKey).then(userNotes => {
-        setNotes(userNotes);
-      });
+      await fetchNotes(derivedPublicKey, 15);
     } catch (error) {
       console.error('Error logging in with private key:', error);
       toast({
@@ -274,7 +261,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       toast({
         title: 'Account created successfully',
-        description: 'Welcome to NOSTR',
+        description: 'Welcome to BlockNostr',
       });
 
       return { privateKey: newPrivateKey, publicKey: newPublicKey };
@@ -298,8 +285,9 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         relays.filter(r => r.read).map(r => r.url),
         [
           {
-            kinds: [0],
+            kinds: [EVENT_KINDS.METADATA],
             authors: [pubkey],
+            limit: 1,
           }
         ]
       );
@@ -312,7 +300,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return {
         pubkey: pubkey,
-        npub: null,
+        npub: hexToNpub(pubkey),
       };
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -330,12 +318,12 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Define filter based on whether we want a specific user's notes or global feed
       const filter = pubkey ? 
         {
-          kinds: [1], // Text notes only
+          kinds: [EVENT_KINDS.TEXT_NOTE], // Text notes only
           authors: [pubkey],
           limit: limit,
         } : 
         {
-          kinds: [1], // Text notes only
+          kinds: [EVENT_KINDS.TEXT_NOTE], // Text notes only
           limit: limit,
         };
 
@@ -347,6 +335,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // Sort by timestamp (newest first)
       const sortedNotes = events
+        .filter(event => verifyEventSignature(event))
         .sort((a, b) => b.created_at - a.created_at)
         .map(event => parseNote(event));
       
@@ -368,19 +357,19 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
   
   const loadMoreNotes = async (count: number = 10): Promise<NostrNote[]> => {
-    if (!pool || !lastEventId || notes.length === 0) return [];
+    if (!pool || !lastEventId) return [];
     
     try {
       // Define filter for loading more notes
       const filter = currentPubkey ? 
         {
-          kinds: [1],
+          kinds: [EVENT_KINDS.TEXT_NOTE],
           authors: [currentPubkey],
           limit: count,
           until: Math.floor((new Date(notes[notes.length - 1].created_at * 1000).getTime() - 1) / 1000),
         } : 
         {
-          kinds: [1],
+          kinds: [EVENT_KINDS.TEXT_NOTE],
           limit: count,
           until: Math.floor((new Date(notes[notes.length - 1].created_at * 1000).getTime() - 1) / 1000),
         };
@@ -393,6 +382,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       // Sort and parse notes
       const sortedNotes = events
+        .filter(event => verifyEventSignature(event))
         .sort((a, b) => b.created_at - a.created_at)
         .map(event => parseNote(event));
       
@@ -400,7 +390,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // Update last event ID
         setLastEventId(sortedNotes[sortedNotes.length - 1].id);
         // Append new notes to existing notes
-        setNotes(prev => [...prev, ...sortedNotes]);
+        setNotes([...notes, ...sortedNotes]);
       }
       
       if (sortedNotes.length < count) {
@@ -449,7 +439,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // Create metadata event (kind: 0) according to NIP-01
       let event: Event = {
-        kind: 0, // Metadata event
+        kind: EVENT_KINDS.METADATA, // Metadata event
         pubkey: publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [],
@@ -525,195 +515,54 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const publishNote = async (content: string): Promise<boolean> => {
-    if (!pool || !privateKey || !publicKey) return false;
-
-    // Implement this with nostr-tools
-    // You'll need to create a signed event and publish it
-    // This is a placeholder for now
-    toast({
-      title: 'Note publishing not implemented yet',
-      description: 'Coming soon!',
-    });
-
-    return false;
-  };
-
-  const followUser = async (pubkey: string): Promise<boolean> => {
-    // Implement this with nostr-tools
-    toast({
-      title: 'Follow feature not implemented yet',
-      description: 'Coming soon!',
-    });
-    return false;
-  };
-
-  const unfollowUser = async (pubkey: string): Promise<boolean> => {
-    // Implement this with nostr-tools
-    toast({
-      title: 'Unfollow feature not implemented yet',
-      description: 'Coming soon!',
-    });
-    return false;
-  };
-
-  // New function to check if a note was liked by the current user
-  const checkIfLiked = async (noteId: string): Promise<boolean> => {
-    if (!pool || !publicKey) return false;
-
-    try {
-      const events = await pool.list(
-        relays.filter(r => r.read).map(r => r.url),
-        [{
-          kinds: [7], // Reaction events
-          authors: [publicKey],
-          '#e': [noteId],
-          limit: 1,
-        }]
-      );
-
-      return events.length > 0 && events.some(event => event.content === '+');
-    } catch (error) {
-      console.error('Error checking if note was liked:', error);
-      return false;
-    }
-  };
-
-  // New function to check if a note was reposted by the current user
-  const checkIfReposted = async (noteId: string): Promise<boolean> => {
-    if (!pool || !publicKey) return false;
-
-    try {
-      const events = await pool.list(
-        relays.filter(r => r.read).map(r => r.url),
-        [{
-          kinds: [6], // Repost events
-          authors: [publicKey],
-          '#e': [noteId],
-          limit: 1,
-        }]
-      );
-
-      return events.length > 0;
-    } catch (error) {
-      console.error('Error checking if note was reposted:', error);
-      return false;
-    }
-  };
-
-  // New function to get note statistics (likes, replies, reposts)
-  const getNoteStats = async (noteId: string): Promise<NostrStats> => {
-    if (!pool) return { likes: 0, replies: 0, reposts: 0 };
-
-    try {
-      // Get likes (kind 7 events that reference this note)
-      const likeEvents = await pool.list(
-        relays.filter(r => r.read).map(r => r.url),
-        [{
-          kinds: [7], // Reaction events
-          '#e': [noteId],
-          limit: 50,
-        }]
-      );
-
-      // Count only '+' reactions as likes according to NIP-25
-      const likesCount = likeEvents.filter(event => event.content === '+').length;
-
-      // Get replies (kind 1 events that reference this note)
-      const replyEvents = await pool.list(
-        relays.filter(r => r.read).map(r => r.url),
-        [{
-          kinds: [1], // Text note events
-          '#e': [noteId],
-          limit: 50,
-        }]
-      );
-
-      // Get reposts (kind 6 events that reference this note)
-      const repostEvents = await pool.list(
-        relays.filter(r => r.read).map(r => r.url),
-        [{
-          kinds: [6], // Repost events
-          '#e': [noteId],
-          limit: 50,
-        }]
-      );
-
-      return {
-        likes: likesCount,
-        replies: replyEvents.length,
-        reposts: repostEvents.length,
-      };
-    } catch (error) {
-      console.error('Error getting note stats:', error);
-      return { likes: 0, replies: 0, reposts: 0 };
-    }
-  };
-
-  // Implement like note functionality (NIP-25 compliant)
-  const likeNote = async (noteId: string): Promise<boolean> => {
-    if (!pool || !publicKey || !privateKey) {
+    if (!pool || !publicKey) {
       toast({
-        title: 'Authentication required',
-        description: 'You must be logged in to like notes',
-        variant: 'destructive',
+        title: "Error",
+        description: "You must be logged in to publish a note",
+        variant: "destructive"
       });
       return false;
     }
 
     try {
-      // Check if already liked to implement toggle functionality
-      const alreadyLiked = await checkIfLiked(noteId);
-      
-      if (alreadyLiked) {
-        // If already liked, we should unlike (but NOSTR doesn't have a direct unlike mechanism)
-        // Typically we would publish a deletion event, but for simplicity we'll just return success
-        // A real implementation would track and delete the previous reaction event
-        toast({
-          title: 'Note unliked',
-        });
-        return true;
-      }
+      // Create a text note event (kind: 1)
+      let event: Event = {
+        kind: EVENT_KINDS.TEXT_NOTE,
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [],
+        content: content,
+        id: '',
+        sig: '',
+      };
 
-      // Find the original note to get the author's pubkey
-      const noteEvents = await pool.list(
-        relays.filter(r => r.read).map(r => r.url),
-        [{
-          ids: [noteId],
-          limit: 1,
-        }]
-      );
+      // Calculate event ID
+      event.id = getEventHash(event);
 
-      if (noteEvents.length === 0) {
+      // Sign the event
+      if (window.nostr) {
+        try {
+          event = await window.nostr.signEvent(event);
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          toast({
+            title: "Signing failed",
+            description: "Please check your NOSTR browser extension",
+            variant: "destructive"
+          });
+          return false;
+        }
+      } else if (privateKey) {
+        event.sig = signEvent(event, privateKey);
+      } else {
         toast({
-          title: 'Note not found',
-          description: 'Cannot like a note that doesn\'t exist',
-          variant: 'destructive',
+          title: "Signing error",
+          description: "No private key or extension available for signing",
+          variant: "destructive"
         });
         return false;
       }
 
-      const originalNote = noteEvents[0];
-      
-      // Create a reaction event according to NIP-25
-      let event: Event = {
-        kind: 7, // Reaction
-        pubkey: publicKey,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [
-          ['e', noteId], // Reference to the note being liked
-          ['p', originalNote.pubkey], // Reference to the note author
-        ],
-        content: '+', // '+' for like according to NIP-25
-        id: '', // Will be set below
-        sig: '', // Will be set below
-      };
-
-      // Calculate id from event data
-      event.id = getEventHash(event);
-      
-      // Sign with local private key
-      event.sig = signEvent(event, privateKey);
-      
       // Publish to relays
       await Promise.all(
         relays
@@ -721,86 +570,323 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .map(relay => pool.publish([relay.url], event))
       );
 
+      // Add the new note to the list
+      const newNote = parseNote(event);
+      setNotes(prevNotes => [newNote, ...prevNotes]);
+
       toast({
-        title: 'Note liked',
+        title: "Note published",
+        description: "Your note has been published to the network",
       });
+
+      return true;
+    } catch (error) {
+      console.error('Error publishing note:', error);
+      toast({
+        title: "Error publishing note",
+        description: "There was an error publishing your note",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
+  const followUser = async (pubkey: string): Promise<boolean> => {
+    if (!pool || !publicKey || !privateKey) return false;
+
+    try {
+      // Get existing contacts
+      const contactsEvents = await pool.list(
+        relays.filter(r => r.read).map(r => r.url),
+        [
+          {
+            kinds: [EVENT_KINDS.CONTACTS],
+            authors: [publicKey],
+          }
+        ]
+      );
+      
+      // Prepare tags for the contacts event
+      let tags: string[][] = [];
+      
+      if (contactsEvents.length > 0) {
+        // Get latest contacts event
+        const latestContacts = contactsEvents.sort((a, b) => b.created_at - a.created_at)[0];
+        
+        // Get existing tags and filter out the pubkey if it's already followed
+        tags = latestContacts.tags.filter(tag => tag[0] !== 'p' || tag[1] !== pubkey);
+      }
+      
+      // Add new pubkey to follow
+      tags.push(['p', pubkey]);
+
+      // Create contacts event (kind: 3)
+      let event: Event = {
+        kind: EVENT_KINDS.CONTACTS,
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: tags,
+        content: '',
+        id: '',
+        sig: '',
+      };
+
+      // Calculate event ID
+      event.id = getEventHash(event);
+      
+      // Sign the event
+      if (window.nostr) {
+        try {
+          event = await window.nostr.signEvent(event);
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          return false;
+        }
+      } else {
+        event.sig = signEvent(event, privateKey);
+      }
+      
+      // Publish to relays
+      await Promise.all(
+        relays
+          .filter(relay => relay.write)
+          .map(relay => pool.publish([relay.url], event))
+      );
+      
+      toast({
+        title: "User followed",
+        description: "You are now following this user",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error following user:', error);
+      toast({
+        title: "Error following user",
+        description: "There was an error following this user",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
+  const unfollowUser = async (pubkey: string): Promise<boolean> => {
+    if (!pool || !publicKey || !privateKey) return false;
+    
+    try {
+      // Get existing contacts
+      const contactsEvents = await pool.list(
+        relays.filter(r => r.read).map(r => r.url),
+        [
+          {
+            kinds: [EVENT_KINDS.CONTACTS],
+            authors: [publicKey],
+          }
+        ]
+      );
+      
+      if (contactsEvents.length === 0) {
+        // No contacts to unfollow
+        return false;
+      }
+      
+      // Get latest contacts event
+      const latestContacts = contactsEvents.sort((a, b) => b.created_at - a.created_at)[0];
+      
+      // Filter out the pubkey to unfollow
+      const tags = latestContacts.tags.filter(tag => tag[0] !== 'p' || tag[1] !== pubkey);
+      
+      // Create contacts event (kind: 3)
+      let event: Event = {
+        kind: EVENT_KINDS.CONTACTS,
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: tags,
+        content: '',
+        id: '',
+        sig: '',
+      };
+      
+      // Calculate event ID
+      event.id = getEventHash(event);
+      
+      // Sign the event
+      if (window.nostr) {
+        try {
+          event = await window.nostr.signEvent(event);
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          return false;
+        }
+      } else {
+        event.sig = signEvent(event, privateKey);
+      }
+      
+      // Publish to relays
+      await Promise.all(
+        relays
+          .filter(relay => relay.write)
+          .map(relay => pool.publish([relay.url], event))
+      );
+      
+      toast({
+        title: "User unfollowed",
+        description: "You have unfollowed this user",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+      toast({
+        title: "Error unfollowing user", 
+        description: "There was an error unfollowing this user",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
+  const likeNote = async (noteId: string): Promise<boolean> => {
+    if (!pool || !publicKey || !privateKey) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to like notes",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    try {
+      // Create reaction event (kind: 7) - NIP-25
+      let event: Event = {
+        kind: EVENT_KINDS.REACTION,
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['e', noteId], // The note being reacted to
+          ['p', notes.find(note => note.id === noteId)?.pubkey || ''] // The author of the note
+        ],
+        content: '+', // '+' for like, other content for other reactions
+        id: '',
+        sig: '',
+      };
+
+      // Calculate event ID
+      event.id = getEventHash(event);
+
+      // Sign the event
+      if (window.nostr) {
+        try {
+          event = await window.nostr.signEvent(event);
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          toast({
+            title: "Signing failed",
+            description: "Please check your NOSTR browser extension",
+            variant: "destructive"
+          });
+          return false;
+        }
+      } else if (privateKey) {
+        event.sig = signEvent(event, privateKey);
+      } else {
+        toast({
+          title: "Signing error",
+          description: "No private key or extension available for signing",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Publish to relays
+      await Promise.all(
+        relays
+          .filter(relay => relay.write)
+          .map(relay => pool.publish([relay.url], event))
+      );
 
       return true;
     } catch (error) {
       console.error('Error liking note:', error);
       toast({
-        title: 'Error liking note',
-        description: 'There was an error processing your like',
-        variant: 'destructive',
+        title: "Error liking note",
+        description: "There was an error liking this note",
+        variant: "destructive"
       });
       return false;
     }
   };
 
-  // Implement repost note functionality (NIP-18 compliant)
   const repostNote = async (noteId: string): Promise<boolean> => {
     if (!pool || !publicKey || !privateKey) {
       toast({
-        title: 'Authentication required',
-        description: 'You must be logged in to repost notes',
-        variant: 'destructive',
+        title: "Authentication required",
+        description: "You must be logged in to repost notes",
+        variant: "destructive"
       });
       return false;
     }
 
     try {
-      // Check if already reposted
-      const alreadyReposted = await checkIfReposted(noteId);
-      
-      if (alreadyReposted) {
-        // Similar to likes, NOSTR doesn't have a direct "un-repost" mechanism
-        // A real implementation would track and delete the previous repost event
+      const originalNote = notes.find(note => note.id === noteId);
+      if (!originalNote) {
         toast({
-          title: 'Note un-reposted',
-        });
-        return true;
-      }
-
-      // Find the original note
-      const noteEvents = await pool.list(
-        relays.filter(r => r.read).map(r => r.url),
-        [{
-          ids: [noteId],
-          limit: 1,
-        }]
-      );
-
-      if (noteEvents.length === 0) {
-        toast({
-          title: 'Note not found',
-          description: 'Cannot repost a note that doesn\'t exist',
-          variant: 'destructive',
+          title: "Note not found",
+          description: "The note you are trying to repost cannot be found",
+          variant: "destructive"
         });
         return false;
       }
 
-      const originalNote = noteEvents[0];
-      
-      // Create a repost event according to NIP-18
+      // Create repost event (kind: 6) - NIP-18
       let event: Event = {
-        kind: 6, // Repost
+        kind: EVENT_KINDS.REPOST,
         pubkey: publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [
-          ['e', noteId, '', 'mention'], // Reference to the note being reposted
-          ['p', originalNote.pubkey], // Reference to the note author
+          ['e', noteId], // The note being reposted
+          ['p', originalNote.pubkey] // The author of the original note
         ],
-        content: '', // Empty content for reposts
-        id: '', // Will be set below
-        sig: '', // Will be set below
+        content: JSON.stringify({
+          content: originalNote.content,
+          created_at: originalNote.created_at,
+          id: originalNote.id,
+          kind: originalNote.kind,
+          pubkey: originalNote.pubkey,
+          sig: originalNote.sig,
+          tags: originalNote.tags,
+        }),
+        id: '',
+        sig: '',
       };
 
-      // Calculate id from event data
+      // Calculate event ID
       event.id = getEventHash(event);
-      
-      // Sign with local private key
-      event.sig = signEvent(event, privateKey);
-      
+
+      // Sign the event
+      if (window.nostr) {
+        try {
+          event = await window.nostr.signEvent(event);
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          toast({
+            title: "Signing failed",
+            description: "Please check your NOSTR browser extension",
+            variant: "destructive"
+          });
+          return false;
+        }
+      } else if (privateKey) {
+        event.sig = signEvent(event, privateKey);
+      } else {
+        toast({
+          title: "Signing error",
+          description: "No private key or extension available for signing",
+          variant: "destructive"
+        });
+        return false;
+      }
+
       // Publish to relays
       await Promise.all(
         relays
@@ -808,19 +894,212 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .map(relay => pool.publish([relay.url], event))
       );
 
-      toast({
-        title: 'Note reposted',
-      });
-
       return true;
     } catch (error) {
       console.error('Error reposting note:', error);
       toast({
-        title: 'Error reposting note',
-        description: 'There was an error processing your repost',
-        variant: 'destructive',
+        title: "Error reposting note",
+        description: "There was an error reposting this note",
+        variant: "destructive"
       });
       return false;
+    }
+  };
+
+  const replyToNote = async (noteId: string, content?: string): Promise<boolean> => {
+    if (!pool || !publicKey || !privateKey) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to reply to notes",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (!content) {
+      // Open reply dialog or navigate to reply form
+      toast({
+        title: "Reply feature",
+        description: "Reply composition UI will be shown here",
+      });
+      return true; // Just indicating the UI should open
+    }
+
+    try {
+      const originalNote = notes.find(note => note.id === noteId);
+      if (!originalNote) {
+        toast({
+          title: "Note not found",
+          description: "The note you are trying to reply to cannot be found",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Create reply event (kind: 1 with e and p tags) - NIP-10
+      let event: Event = {
+        kind: EVENT_KINDS.TEXT_NOTE,
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['e', noteId, '', 'reply'], // The note being replied to (with 'reply' marker)
+          ['p', originalNote.pubkey] // The author of the original note
+        ],
+        content: content,
+        id: '',
+        sig: '',
+      };
+
+      // Calculate event ID
+      event.id = getEventHash(event);
+
+      // Sign the event
+      if (window.nostr) {
+        try {
+          event = await window.nostr.signEvent(event);
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          toast({
+            title: "Signing failed",
+            description: "Please check your NOSTR browser extension",
+            variant: "destructive"
+          });
+          return false;
+        }
+      } else if (privateKey) {
+        event.sig = signEvent(event, privateKey);
+      } else {
+        toast({
+          title: "Signing error",
+          description: "No private key or extension available for signing",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Publish to relays
+      await Promise.all(
+        relays
+          .filter(relay => relay.write)
+          .map(relay => pool.publish([relay.url], event))
+      );
+
+      // Add the reply to the feed
+      const newNote = parseNote(event);
+      setNotes(prevNotes => [newNote, ...prevNotes]);
+
+      return true;
+    } catch (error) {
+      console.error('Error replying to note:', error);
+      toast({
+        title: "Error replying to note",
+        description: "There was an error posting your reply",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
+  const checkIfLiked = async (noteId: string): Promise<boolean> => {
+    if (!pool || !publicKey) return false;
+
+    try {
+      // Check for reaction events from the current user for this note
+      const reactions = await pool.list(
+        relays.filter(r => r.read).map(r => r.url),
+        [
+          {
+            kinds: [EVENT_KINDS.REACTION],
+            authors: [publicKey],
+            '#e': [noteId],
+          }
+        ]
+      );
+
+      // Return true if there are any like reactions (with '+' content)
+      return reactions.some(event => event.content === '+');
+    } catch (error) {
+      console.error('Error checking if note is liked:', error);
+      return false;
+    }
+  };
+
+  const checkIfReposted = async (noteId: string): Promise<boolean> => {
+    if (!pool || !publicKey) return false;
+
+    try {
+      // Check for repost events from the current user for this note
+      const reposts = await pool.list(
+        relays.filter(r => r.read).map(r => r.url),
+        [
+          {
+            kinds: [EVENT_KINDS.REPOST],
+            authors: [publicKey],
+            '#e': [noteId],
+          }
+        ]
+      );
+
+      return reposts.length > 0;
+    } catch (error) {
+      console.error('Error checking if note is reposted:', error);
+      return false;
+    }
+  };
+
+  const getNoteStats = async (noteId: string): Promise<NostrStats> => {
+    if (!pool) {
+      return { likeCount: 0, repostCount: 0, replyCount: 0 };
+    }
+
+    try {
+      // Get likes (reactions)
+      const likes = await pool.list(
+        relays.filter(r => r.read).map(r => r.url),
+        [
+          {
+            kinds: [EVENT_KINDS.REACTION],
+            '#e': [noteId],
+          }
+        ]
+      );
+
+      // Filter to only '+' reactions
+      const likeCount = likes.filter(event => event.content === '+').length;
+
+      // Get reposts
+      const reposts = await pool.list(
+        relays.filter(r => r.read).map(r => r.url),
+        [
+          {
+            kinds: [EVENT_KINDS.REPOST],
+            '#e': [noteId],
+          }
+        ]
+      );
+
+      // Get replies
+      const replies = await pool.list(
+        relays.filter(r => r.read).map(r => r.url),
+        [
+          {
+            kinds: [EVENT_KINDS.TEXT_NOTE],
+            '#e': [noteId],
+          }
+        ]
+      );
+
+      // Filter replies to exclude reposts
+      const trueReplies = replies.filter(event => event.kind === EVENT_KINDS.TEXT_NOTE);
+
+      return {
+        likeCount,
+        repostCount: reposts.length,
+        replyCount: trueReplies.length,
+      };
+    } catch (error) {
+      console.error('Error fetching note stats:', error);
+      return { likeCount: 0, repostCount: 0, replyCount: 0 };
     }
   };
 
@@ -931,6 +1210,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     unfollowUser,
     likeNote,
     repostNote,
+    replyToNote,
     checkIfLiked,
     checkIfReposted,
     getNoteStats,
@@ -946,9 +1226,3 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     </NostrContext.Provider>
   );
 };
-
-function getPublicKey(privateKey: string): string {
-  // Implement this function to derive the public key from the private key
-  // This is a placeholder for now
-  return 'derivedPublicKey';
-}
