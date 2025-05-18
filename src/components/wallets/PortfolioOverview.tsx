@@ -5,6 +5,7 @@ import { ArrowUp, ArrowDown, TrendingUp, Coins, Wallet } from 'lucide-react';
 import { fetchCoinPrice, fetchTokenBalance } from '@/lib/coinGeckoAPI';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { getTokenMetadata, getFallbackTokenData, formatTokenAmount } from '@/lib/tokenMetadata';
 
 interface PortfolioOverviewProps {
   ecosystem: string;
@@ -18,11 +19,13 @@ interface AssetPrice {
 }
 
 interface TokenBalance {
+  id: string;
   symbol: string;
   name: string;
   amount: number;
   value: number;
   color: string;
+  logoURI?: string;
 }
 
 const defaultTokenColors = [
@@ -43,6 +46,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [tokens, setTokens] = useState<TokenBalance[]>([]);
   const [portfolioValue, setPortfolioValue] = useState(0);
+  const [tokenMetadataLoaded, setTokenMetadataLoaded] = useState(false);
 
   // CoinGecko IDs for each ecosystem
   const coinIds: Record<string, string> = {
@@ -112,41 +116,48 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         const result = await fetchTokenBalance(ecosystem, walletAddress);
         
         if (result && !result.error) {
-          // Process main token
-          const mainToken: TokenBalance = {
-            symbol: assetPrices?.symbol || ecosystem.toUpperCase(),
-            name: assetPrices?.name || ecosystem,
-            amount: parseFloat((result.balance / 1e18).toFixed(4)), // Assuming 18 decimals
-            value: parseFloat((result.balance / 1e18 * (assetPrices?.price || 0)).toFixed(2)),
-            color: defaultTokenColors[0]
-          };
-          
-          // Process other tokens
-          const otherTokens: TokenBalance[] = [];
-          
-          if (result.tokenBalances && result.tokenBalances.length > 0) {
-            result.tokenBalances.forEach((token: any, index: number) => {
-              // In a real app, you would fetch prices for each token
-              // For demo purposes, we're using mock prices
-              const mockPrice = Math.random() * 10; // Random price between 0 and 10
-              const amount = parseFloat((token.amount / 1e8).toFixed(4)); // Adjust decimals as needed
-              
-              otherTokens.push({
-                symbol: `TOKEN${index + 1}`,
-                name: `Token ${index + 1}`,
-                amount: amount,
-                value: parseFloat((amount * mockPrice).toFixed(2)),
-                color: defaultTokenColors[(index + 1) % defaultTokenColors.length]
+          // For Alephium, enhance with token metadata
+          if (ecosystem === 'alephium') {
+            await processAlephiumTokens(result);
+          } else {
+            // Process main token for other ecosystems
+            const mainToken: TokenBalance = {
+              id: coinIds[ecosystem] || ecosystem,
+              symbol: assetPrices?.symbol || ecosystem.toUpperCase(),
+              name: assetPrices?.name || ecosystem,
+              amount: parseFloat((result.balance / 1e18).toFixed(4)), // Assuming 18 decimals
+              value: parseFloat((result.balance / 1e18 * (assetPrices?.price || 0)).toFixed(2)),
+              color: defaultTokenColors[0]
+            };
+            
+            // Process other tokens
+            const otherTokens: TokenBalance[] = [];
+            
+            if (result.tokenBalances && result.tokenBalances.length > 0) {
+              result.tokenBalances.forEach((token: any, index: number) => {
+                // In a real app, you would fetch prices for each token
+                // For demo purposes, we're using mock prices
+                const mockPrice = Math.random() * 10; // Random price between 0 and 10
+                const amount = parseFloat((token.amount / 1e8).toFixed(4)); // Adjust decimals as needed
+                
+                otherTokens.push({
+                  id: `token-${index}`,
+                  symbol: `TOKEN${index + 1}`,
+                  name: `Token ${index + 1}`,
+                  amount: amount,
+                  value: parseFloat((amount * mockPrice).toFixed(2)),
+                  color: defaultTokenColors[(index + 1) % defaultTokenColors.length]
+                });
               });
-            });
+            }
+            
+            const allTokens = [mainToken, ...otherTokens];
+            setTokens(allTokens);
+            
+            // Calculate total portfolio value
+            const totalValue = allTokens.reduce((sum, token) => sum + token.value, 0);
+            setPortfolioValue(totalValue);
           }
-          
-          const allTokens = [mainToken, ...otherTokens];
-          setTokens(allTokens);
-          
-          // Calculate total portfolio value
-          const totalValue = allTokens.reduce((sum, token) => sum + token.value, 0);
-          setPortfolioValue(totalValue);
         }
       } catch (err) {
         console.error(`Error fetching ${ecosystem} balances:`, err);
@@ -157,6 +168,60 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
       fetchBalances();
     }
   }, [ecosystem, walletAddress, assetPrices]);
+  
+  // Process Alephium tokens with metadata
+  const processAlephiumTokens = async (result: any) => {
+    try {
+      // Process main ALPH token
+      const mainToken: TokenBalance = {
+        id: 'ALPH',
+        symbol: 'ALPH',
+        name: 'Alephium',
+        amount: parseFloat(formatTokenAmount(result.balance || 0, 18)),
+        value: parseFloat((parseFloat(formatTokenAmount(result.balance || 0, 18)) * (assetPrices?.price || 0)).toFixed(2)),
+        color: defaultTokenColors[0],
+        logoURI: 'https://raw.githubusercontent.com/alephium/token-list/master/logos/alephium.png'
+      };
+      
+      // Process other tokens with metadata
+      const otherTokens: TokenBalance[] = [];
+      
+      if (result.tokenBalances && result.tokenBalances.length > 0) {
+        const processPromises = result.tokenBalances.map(async (token: any, index: number) => {
+          // Get token metadata or use fallback
+          const tokenId = token.id || `unknown-${index}`;
+          const metadata = await getTokenMetadata(tokenId) || getFallbackTokenData(tokenId);
+          
+          // Use mock price for demo purposes
+          const mockPrice = Math.random() * 10; // Random price between 0 and 10
+          const amount = parseFloat(formatTokenAmount(token.amount || 0, metadata.decimals));
+          
+          return {
+            id: tokenId,
+            symbol: metadata.symbol,
+            name: metadata.name,
+            amount: amount,
+            value: parseFloat((amount * mockPrice).toFixed(2)),
+            color: defaultTokenColors[(index + 1) % defaultTokenColors.length],
+            logoURI: metadata.logoURI
+          };
+        });
+        
+        const resolvedTokens = await Promise.all(processPromises);
+        otherTokens.push(...resolvedTokens);
+      }
+      
+      const allTokens = [mainToken, ...otherTokens];
+      setTokens(allTokens);
+      
+      // Calculate total portfolio value
+      const totalValue = allTokens.reduce((sum, token) => sum + token.value, 0);
+      setPortfolioValue(totalValue);
+      setTokenMetadataLoaded(true);
+    } catch (error) {
+      console.error("Error processing Alephium tokens:", error);
+    }
+  };
 
   // Chart configuration for portfolio breakdown
   const chartConfig = tokens.reduce((config, token, index) => {
@@ -326,8 +391,22 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                     {tokens.map((token, index) => (
                       <div key={index} className="grid grid-cols-3 gap-2 py-2 border-b border-border last:border-0">
                         <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: token.color }}></div>
-                          <span className="font-medium">{token.symbol}</span>
+                          {token.logoURI ? (
+                            <img 
+                              src={token.logoURI} 
+                              alt={token.symbol} 
+                              className="w-5 h-5 rounded-full" 
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/alephium/token-list/master/logos/unknown.png';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full" style={{ backgroundColor: token.color }}></div>
+                          )}
+                          <div>
+                            <span className="font-medium">{token.symbol}</span>
+                            <div className="text-xs text-muted-foreground">{token.name}</div>
+                          </div>
                         </div>
                         <div className="text-right">{token.amount.toLocaleString()}</div>
                         <div className="text-right font-medium">${token.value.toLocaleString()}</div>
@@ -339,7 +418,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             </div>
           ) : (
             <div className="text-center py-10 text-muted-foreground">
-              Add wallet addresses to see your portfolio breakdown
+              {loading ? "Loading token data..." : "Add wallet addresses to see your portfolio breakdown"}
             </div>
           )}
         </CardContent>
