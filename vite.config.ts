@@ -1,4 +1,3 @@
-
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -18,17 +17,6 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      // Add buffer polyfill alias
-      'buffer': 'buffer',
     },
   },
-  define: {
-    // Ensure Buffer is properly defined in browser environment
-    global: 'globalThis',
-    'process.env': {},
-  },
-  optimizeDeps: {
-    // Include buffer in dependencies to be optimized
-    include: ['buffer'],
-  }
 }));

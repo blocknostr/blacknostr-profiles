@@ -1,7 +1,5 @@
 
 // CoinGecko API utility functions
-import { web3, NodeProvider } from '@alephium/web3';
-
 interface CoinPrice {
   id: string;
   symbol: string;
@@ -41,76 +39,29 @@ export async function fetchCoinPrice(coinId: string): Promise<CoinPrice | null> 
 
 export async function fetchTokenBalance(ecosystem: string, address: string): Promise<any> {
   // In a real application, this would connect to different blockchain APIs based on the ecosystem
+  // For now, this is a placeholder
   
   console.log(`Fetching balance for ${address} on ${ecosystem}`);
-  
-  if (ecosystem === 'alephium') {
-    try {
-      // Make sure the NodeProvider is initialized
-      let nodeProvider = web3.getCurrentNodeProvider();
-      
-      // If not initialized, create a new NodeProvider
-      if (!nodeProvider) {
-        console.log("Creating new NodeProvider for balance check");
-        nodeProvider = new NodeProvider('https://node.mainnet.alephium.org');
-        web3.setCurrentNodeProvider(nodeProvider);
-      }
-      
-      const balance = await nodeProvider.addresses.getAddressesAddressBalance(address);
-      console.log("Retrieved balance:", balance);
-      return balance;
-    } catch (error) {
-      console.error('Error fetching Alephium balance:', error);
-    }
-  }
-  
-  return { balance: '0', lockedBalance: '0' };
+  return { balance: 0 };
 }
 
 export async function fetchAlephiumData() {
-  const mainnetNodeUrl = 'https://node.mainnet.alephium.org';
+  // This would integrate with the Alephium SDK in a real application
+  // For now, this is a placeholder for future implementation
   
   try {
-    console.log("Fetching Alephium data...");
-    
-    // Initialize the node provider if not already initialized
-    let nodeProvider;
-    try {
-      nodeProvider = web3.getCurrentNodeProvider();
-      if (!nodeProvider) {
-        console.log("Creating new NodeProvider");
-        nodeProvider = new NodeProvider(mainnetNodeUrl);
-        web3.setCurrentNodeProvider(nodeProvider);
-      }
-    } catch (error) {
-      console.error("Error initializing NodeProvider:", error);
-      nodeProvider = new NodeProvider(mainnetNodeUrl);
-      web3.setCurrentNodeProvider(nodeProvider);
-    }
-    
-    if (!nodeProvider) {
-      throw new Error("Failed to initialize NodeProvider");
-    }
-    
-    // Getting infos - using the correct API methods
-    console.log("Fetching node info...");
-    const nodeInfo = await nodeProvider.infos.getInfosNode();
-    console.log("Fetching blockflow chain info...");
-    const blockflowChainInfo = await nodeProvider.blockflow.getBlockflowChainInfo({ fromGroup: 0, toGroup: 3 });
+    // Using the documentation from https://docs.alephium.org/sdk/getting-started/
+    // Actual implementation would require the Alephium SDK
     
     return {
       success: true,
-      message: "Successfully connected to Alephium blockchain",
-      data: {
-        nodeInfo,
-        blockflowChainInfo
-      }
+      message: "This would connect to the Alephium blockchain using the SDK"
     };
   } catch (error) {
     console.error('Error connecting to Alephium:', error);
     return {
       success: false,
-      message: `Failed to connect to Alephium blockchain: ${error instanceof Error ? error.message : 'Unknown error'}`
+      message: "Failed to connect to Alephium blockchain"
     };
   }
 }
