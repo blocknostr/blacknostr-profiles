@@ -24,9 +24,13 @@ const AlephiumSection = () => {
 
   useEffect(() => {
     // Check if already connected
-    if (web3.getCurrentNodeProvider()) {
-      setIsConnected(true);
-      setMessage("Connected to Alephium blockchain");
+    try {
+      if (web3.getCurrentNodeProvider()) {
+        setIsConnected(true);
+        setMessage("Connected to Alephium blockchain");
+      }
+    } catch (error) {
+      console.error("Error checking connection:", error);
     }
   }, []);
 

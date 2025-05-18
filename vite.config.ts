@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => ({
   },
   define: {
     // Ensure Buffer is properly defined in browser environment
-    global: {},
+    global: 'globalThis',
+    'process.env': {},
   },
 }));

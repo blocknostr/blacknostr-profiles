@@ -56,7 +56,7 @@ export async function fetchTokenBalance(ecosystem: string, address: string): Pro
     }
   }
   
-  return { balance: 0 };
+  return { balance: '0' };
 }
 
 export async function fetchAlephiumData() {

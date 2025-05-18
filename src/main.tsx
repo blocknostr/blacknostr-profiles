@@ -6,6 +6,7 @@ import './index.css'
 
 // Polyfill Buffer for the browser environment
 import { Buffer } from 'buffer'
+globalThis.Buffer = Buffer
 window.Buffer = Buffer
 
 const root = createRoot(document.getElementById('root')!)
