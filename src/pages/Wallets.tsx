@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,7 +8,6 @@ import WalletManager from "@/components/wallets/WalletManager";
 import PortfolioOverview from "@/components/wallets/PortfolioOverview";
 import WalletDapps from "@/components/wallets/WalletDapps";
 import AlephiumSection from "@/components/wallets/AlephiumSection";
-// Import from the correct package
 import { AlephiumWalletProvider } from "@alephium/web3-react";
 
 // Define the blockchain ecosystems
@@ -65,7 +64,7 @@ const Wallets = () => {
               
               {selectedEcosystem === "alephium" && (
                 <TabsContent value="alephium">
-                  <AlephiumWalletProvider network="mainnet">
+                  <AlephiumWalletProvider networkId={0} addressGroup={0}>
                     <AlephiumSection />
                   </AlephiumWalletProvider>
                 </TabsContent>

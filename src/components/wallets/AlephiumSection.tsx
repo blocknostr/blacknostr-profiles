@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import alephiumAPI from '@/lib/alephiumAPI';
 import { Wallet, Network, ArrowRight, Star, Medal, LineChart } from 'lucide-react';
-import { getDefaultAlephiumWallet } from '@alephium/get-extension-wallet';
 import { useWallet } from '@alephium/web3-react';
 
 interface AlephiumBalanceData {
@@ -52,15 +51,15 @@ const AlephiumSection = () => {
   const [loadingNFTs, setLoadingNFTs] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   
-  // Use Alephium wallet hook
-  const { connectionStatus, account, connect, disconnect } = useWallet();
+  // Use Alephium wallet hook with the correct typing
+  const { connectionStatus, account, connecting, address } = useWallet();
 
   useEffect(() => {
     // Check connection status whenever it changes
     if (connectionStatus === 'connected' && account) {
       setIsConnected(true);
-      setWalletAddress(account.address);
-      loadWalletData(account.address);
+      setWalletAddress(address || account.address);
+      loadWalletData(address || account.address);
       setMessage("Connected to Alephium wallet");
     } else if (connectionStatus === 'disconnected') {
       setIsConnected(false);
@@ -68,7 +67,7 @@ const AlephiumSection = () => {
       setBalance(null);
       setMessage(null);
     }
-  }, [connectionStatus, account]);
+  }, [connectionStatus, account, address]);
 
   const loadWalletData = async (address: string) => {
     try {
@@ -106,8 +105,9 @@ const AlephiumSection = () => {
       // First check if network stats can be loaded
       await loadNetworkStats();
       
-      // Then try to connect wallet using @alephium/web3-react
-      await connect();
+      // For Alephium web3-react, we don't directly call connect/disconnect
+      // Instead we rely on the AlephiumWalletProvider in the parent component
+      // and use the connectionStatus to determine if we're connected
       
       toast({
         title: "Connecting to Alephium",
@@ -130,7 +130,8 @@ const AlephiumSection = () => {
   
   const disconnectWallet = async () => {
     try {
-      await disconnect();
+      // For Alephium web3-react, we don't directly call connect/disconnect
+      // The disconnect functionality is handled by the AlephiumWalletProvider
       setIsConnected(false);
       setWalletAddress(null);
       setBalance(null);
@@ -183,9 +184,9 @@ const AlephiumSection = () => {
             <Button 
               onClick={connectToAlephium}
               className="bg-nostr-blue hover:bg-nostr-blue/90 text-white"
-              disabled={loading}
+              disabled={loading || connecting}
             >
-              {loading ? "Connecting..." : "Connect to Alephium"}
+              {loading || connecting ? "Connecting..." : "Connect to Alephium"}
             </Button>
           ) : (
             <div className="space-y-2">
