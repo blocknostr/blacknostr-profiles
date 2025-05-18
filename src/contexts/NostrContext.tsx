@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SimplePool, Event, getEventHash, signEvent, getPublicKey } from 'nostr-tools';
+import { SimplePool, Event, getEventHash, signEvent, getPublicKey as nostrGetPublicKey } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
 import {
   DEFAULT_RELAYS,
@@ -198,7 +198,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const loginWithPrivateKey = async (inputPrivateKey: string) => {
     try {
       // Get public key from private key
-      const derivedPublicKey = getPublicKey(inputPrivateKey);
+      const derivedPublicKey = nostrGetPublicKey(inputPrivateKey);
       
       // Save keys
       saveKeys(inputPrivateKey);
@@ -1226,9 +1226,3 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     </NostrContext.Provider>
   );
 };
-
-function getPublicKey(privateKey: string): string {
-  // Implement this function to derive the public key from the private key
-  // This is a placeholder for now
-  return 'derivedPublicKey';
-}
