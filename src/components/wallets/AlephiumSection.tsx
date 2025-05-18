@@ -51,15 +51,19 @@ const AlephiumSection = () => {
   const [loadingNFTs, setLoadingNFTs] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   
-  // Use Alephium wallet hook with the correct typing
-  const { connectionStatus, account, connecting, address } = useWallet();
+  // Use Alephium wallet hook with proper typing
+  const walletState = useWallet();
+  const { connectionStatus, account } = walletState;
+  const isConnecting = walletState.connectionStatus === 'connecting';
 
   useEffect(() => {
     // Check connection status whenever it changes
     if (connectionStatus === 'connected' && account) {
       setIsConnected(true);
-      setWalletAddress(address || account.address);
-      loadWalletData(address || account.address);
+      // Account should have address
+      const currentAddress = account.address;
+      setWalletAddress(currentAddress);
+      loadWalletData(currentAddress);
       setMessage("Connected to Alephium wallet");
     } else if (connectionStatus === 'disconnected') {
       setIsConnected(false);
@@ -67,7 +71,7 @@ const AlephiumSection = () => {
       setBalance(null);
       setMessage(null);
     }
-  }, [connectionStatus, account, address]);
+  }, [connectionStatus, account]);
 
   const loadWalletData = async (address: string) => {
     try {
@@ -105,9 +109,9 @@ const AlephiumSection = () => {
       // First check if network stats can be loaded
       await loadNetworkStats();
       
-      // For Alephium web3-react, we don't directly call connect/disconnect
-      // Instead we rely on the AlephiumWalletProvider in the parent component
-      // and use the connectionStatus to determine if we're connected
+      // For Alephium web3-react, we don't directly call connect
+      // The connection is handled by the AlephiumWalletProvider
+      // We just need to inform the user to approve the connection in their wallet
       
       toast({
         title: "Connecting to Alephium",
@@ -184,9 +188,9 @@ const AlephiumSection = () => {
             <Button 
               onClick={connectToAlephium}
               className="bg-nostr-blue hover:bg-nostr-blue/90 text-white"
-              disabled={loading || connecting}
+              disabled={loading || isConnecting}
             >
-              {loading || connecting ? "Connecting..." : "Connect to Alephium"}
+              {loading || isConnecting ? "Connecting..." : "Connect to Alephium"}
             </Button>
           ) : (
             <div className="space-y-2">

@@ -64,7 +64,7 @@ const Wallets = () => {
               
               {selectedEcosystem === "alephium" && (
                 <TabsContent value="alephium">
-                  <AlephiumWalletProvider networkId={0} addressGroup={0}>
+                  <AlephiumWalletProvider network="mainnet">
                     <AlephiumSection />
                   </AlephiumWalletProvider>
                 </TabsContent>
