@@ -1,5 +1,9 @@
 // CoinGecko API utility functions
-import { getTokenMetadata, getFallbackTokenData, formatTokenAmount, getAllCoinGeckoIds } from "./tokenMetadata";
+import { getTokenMetadata, getFallbackTokenData, formatTokenAmount } from "./tokenMetadata";
+import { getAllCoinGeckoIds, getCoinGeckoId as getGeckoId, tokenMappings } from "./tokenMappings";
+
+// Re-export for backward compatibility
+export const getCoinGeckoId = getGeckoId;
 
 interface CoinPrice {
   id: string;

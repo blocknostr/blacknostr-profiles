@@ -3,6 +3,7 @@
  * Token metadata service for Alephium tokens
  * Fetches and caches token information from the official Alephium token list
  */
+import { tokenMappings, getCoinGeckoId as getGeckoId } from "./tokenMappings";
 
 // Token interface matching the Alephium token list schema
 export interface TokenMetadata {
@@ -41,30 +42,6 @@ let tokenCache: Record<string, TokenMetadata> | null = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 3600000; // 1 hour in milliseconds
 
-// Map of known token IDs to their CoinGecko equivalents and relevant data
-export const tokenMappings: Record<string, { 
-  coingeckoId: string, 
-  isStablecoin?: boolean,
-  price?: number 
-}> = {
-  // AlphBanx token
-  "27aa562d592758d73b33ef11ac5b574aea843a3e315a8d1bdef714c3d6a52cd5": {
-    coingeckoId: "alphbanx",
-    price: 0.008
-  },
-  // Native ALPH token
-  "ALPH": {
-    coingeckoId: "alephium",
-  },
-  // USDT on Alephium
-  "0fecb142f02eeee90f3daf141a07fec6c4fa35ceef2e3bd2a9e9186b4b85ae43": {
-    coingeckoId: "tether",
-    isStablecoin: true,
-    price: 1.0
-  },
-  // Add more mappings as needed
-};
-
 /**
  * Fetches the official token list from GitHub
  */
@@ -96,10 +73,10 @@ export const fetchTokenList = async (): Promise<Record<string, TokenMetadata>> =
     const tokenMap: Record<string, TokenMetadata> = {};
     data.tokens.forEach(token => {
       // Add CoinGecko ID if we have a mapping
-      if (tokenMappings[token.id]) {
-        token.coingeckoId = tokenMappings[token.id].coingeckoId;
-        token.isStablecoin = tokenMappings[token.id].isStablecoin;
-        token.price = tokenMappings[token.id].price;
+      const mapping = tokenMappings[token.id];
+      if (mapping) {
+        token.coingeckoId = mapping.coingeckoId;
+        token.isStablecoin = mapping.isStablecoin;
       }
       tokenMap[token.id] = token;
     });
@@ -186,14 +163,13 @@ export const getTokenMetadata = async (tokenId: string): Promise<TokenMetadata |
 
 /**
  * Gets CoinGecko ID for a given Alephium token ID
+ * Re-exported from tokenMappings for backward compatibility
  */
-export const getCoinGeckoId = (tokenId: string): string | undefined => {
-  const mapping = tokenMappings[tokenId];
-  return mapping?.coingeckoId;
-};
+export const getCoinGeckoId = getGeckoId;
 
 /**
  * Gets a list of all known CoinGecko IDs for fetching prices
+ * Re-exported from tokenMappings module
  */
 export const getAllCoinGeckoIds = (): string[] => {
   return Object.values(tokenMappings)
@@ -243,7 +219,7 @@ export const formatTokenAmount = (amount: string | number, decimals: number = 0)
       maximumFractionDigits: decimals
     });
   } catch (error) {
-    console.error("Error formatting token amount:", error, amount, decimals);
+    console.error("Error formatting token amount:", error);
     return "0";
   }
 };
