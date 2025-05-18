@@ -1,9 +1,9 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import alephiumAPI from '@/lib/alephiumAPI';
-import { Wallet, Network, ArrowRight, Star, Medal, LineChart } from 'lucide-react';
+import { Wallet, Network, ArrowRight, Star, Medal, LineChart, TrendingUp } from 'lucide-react';
 import { useWallet } from '@alephium/web3-react';
 
 interface AlephiumBalanceData {
@@ -238,6 +238,54 @@ const AlephiumSection = () => {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Market Stats Card - Moved from PortfolioOverview */}
+      <Card className="dark:bg-nostr-dark dark:border-white/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Market Data
+          </CardTitle>
+          <CardDescription>Latest ALPH market stats</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-sm text-muted-foreground">Market Cap</div>
+              <div className="font-medium">$5.2B</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">24h Volume</div>
+              <div className="font-medium">$320.5M</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">Circulating Supply</div>
+              <div className="font-medium">687.2M</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">Total Supply</div>
+              <div className="font-medium">1.0B</div>
+            </div>
+          </div>
+          <div className="pt-4 border-t">
+            <h4 className="text-sm font-medium mb-2">Price Action</h4>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="bg-muted p-2 rounded text-center">
+                <div className="text-muted-foreground">1 Day</div>
+                <div className="font-medium text-green-500">+2.1%</div>
+              </div>
+              <div className="bg-muted p-2 rounded text-center">
+                <div className="text-muted-foreground">7 Days</div>
+                <div className="font-medium text-red-500">-5.3%</div>
+              </div>
+              <div className="bg-muted p-2 rounded text-center">
+                <div className="text-muted-foreground">30 Days</div>
+                <div className="font-medium text-green-500">+12.7%</div>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
       
