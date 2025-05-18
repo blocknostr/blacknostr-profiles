@@ -56,9 +56,11 @@ export default {
 				nostr: {
 					primary: '#8B5CF6',
 					secondary: '#0EA5E9',
-					dark: '#1A1F2C',
+					dark: '#000000',
 					light: '#F8FAFC',
-					muted: '#94A3B8'
+					muted: '#D3D3D3',
+					cyan: '#1EAEDB',
+					blue: '#33C3F0'
 				}
 			},
 			borderRadius: {

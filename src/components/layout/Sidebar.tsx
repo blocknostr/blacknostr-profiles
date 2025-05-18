@@ -19,6 +19,7 @@ import {
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "@/components/ui/use-toast";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export default function Sidebar() {
   const { isAuthenticated, profile, logout, publishNote } = useNostr();
@@ -56,10 +57,11 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="h-screen border-r border-border flex flex-col p-4 w-64">
-      {/* Logo */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-nostr-primary">BlockNostr</h1>
+    <div className="h-screen border-r border-border flex flex-col p-4 w-64 dark:bg-black">
+      {/* Logo and Theme Toggle */}
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-nostr-primary dark:text-nostr-cyan">BlockNostr</h1>
+        <ThemeToggle />
       </div>
 
       {/* Navigation */}
@@ -68,7 +70,7 @@ export default function Sidebar() {
           <Link
             key={item.label}
             to={item.href}
-            className="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-muted transition-colors"
+            className="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
           >
             {item.icon}
             <span className="ml-3">{item.label}</span>
@@ -80,7 +82,7 @@ export default function Sidebar() {
       <div className="mt-4 mb-6">
         <Button 
           onClick={handleCreateNote}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2"
+          className="w-full bg-nostr-primary hover:bg-nostr-primary/90 dark:bg-nostr-cyan dark:hover:bg-nostr-blue text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2"
         >
           <PenSquare className="h-4 w-4" />
           Create Note
@@ -89,14 +91,14 @@ export default function Sidebar() {
 
       {/* User Profile */}
       {isAuthenticated && profile && (
-        <div className="flex items-center space-x-3 p-3 hover:bg-muted rounded-md cursor-pointer">
+        <div className="flex items-center space-x-3 p-3 hover:bg-muted dark:hover:bg-white/5 rounded-md cursor-pointer">
           <Avatar>
             <AvatarImage src={profile.picture} alt={profile.displayName || "User"} />
             <AvatarFallback>{profile.displayName?.charAt(0) || "U"}</AvatarFallback>
           </Avatar>
           <div className="overflow-hidden">
             <p className="text-sm font-medium truncate">{profile.displayName || "Anonymous"}</p>
-            <p className="text-xs text-muted-foreground truncate">{profile.npub || ""}</p>
+            <p className="text-xs text-muted-foreground truncate dark:text-nostr-muted">{profile.npub || ""}</p>
           </div>
         </div>
       )}

@@ -37,33 +37,33 @@
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 0%; /* Pure black (#000000) */
+    --foreground: 0 0% 100%; /* Pure white (#FFFFFF) */
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 4%; /* Slightly lighter than background */
+    --card-foreground: 0 0% 100%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 0%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 262 83% 58%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 262 83% 58%; /* Keep purple primary */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 199 89% 48%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 199 89% 48%; /* Keep blue secondary */
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 0 0% 15%; /* Dark gray background */
+    --muted-foreground: 0 0% 83%; /* Light gray text (#D3D3D3) */
 
-    --accent: 262 83% 58%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 196 64% 49%; /* Bright blue accent (#1EAEDB) */
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 18%;
-    --input: 217 33% 18%;
-    --ring: 212 27% 84%;
+    --border: 0 0% 20%; /* Dark borders */
+    --input: 0 0% 20%;
+    --ring: 0 0% 83%;
   }
 }
 
@@ -98,6 +98,14 @@
   }
 
   .nostr-link {
-    @apply text-nostr-primary hover:text-nostr-primary/90 transition-colors;
+    @apply text-nostr-primary dark:text-nostr-cyan hover:text-nostr-primary/90 dark:hover:text-nostr-blue transition-colors;
+  }
+
+  .dark .glass-morphism {
+    @apply backdrop-blur-xl bg-black/30 border border-white/10 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.5)];
+  }
+  
+  .dark .text-gradient {
+    @apply bg-gradient-to-br from-white via-white/90 to-white/70 bg-clip-text text-transparent;
   }
 }

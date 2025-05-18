@@ -30,6 +30,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         md:block fixed md:static top-0 left-0 h-screen z-10
         transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+        dark:border-r dark:border-white/10
       `}>
         <Sidebar />
       </div>
@@ -45,7 +46,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
-          className="md:hidden fixed inset-0 bg-black/20 z-0"
+          className="md:hidden fixed inset-0 bg-black/20 dark:bg-black/50 z-0"
           onClick={() => setSidebarOpen(false)}
         />
       )}
