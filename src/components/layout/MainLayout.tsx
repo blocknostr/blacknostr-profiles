@@ -53,11 +53,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </div>
         </div>
 
-        {/* Main content - scrollable */}
+        {/* Main content - no scroll */}
         <ResizableHandle withHandle className="hidden md:flex" />
         
         <ResizablePanel defaultSize={60}>
-          <div className="flex-grow max-w-3xl mx-auto px-4 py-6 md:px-6 h-screen overflow-y-auto">
+          <div className="flex-grow max-w-3xl mx-auto px-4 py-6 md:px-6 h-screen">
             {children}
           </div>
         </ResizablePanel>
