@@ -42,26 +42,47 @@ export async function fetchTokenBalance(ecosystem: string, address: string): Pro
   // For now, this is a placeholder
   
   console.log(`Fetching balance for ${address} on ${ecosystem}`);
-  return { balance: 0 };
+  
+  try {
+    if (ecosystem === 'alephium' && address) {
+      // Use the new alephiumAPI to get real balance data
+      const alephiumAPI = (await import('@/lib/alephiumAPI')).default;
+      const balance = await alephiumAPI.getAddressBalance(address);
+      return { balance: balance.balance };
+    }
+    
+    return { balance: 0 };
+  } catch (error) {
+    console.error(`Error fetching ${ecosystem} balance:`, error);
+    return { balance: 0, error: true };
+  }
 }
 
 export async function fetchAlephiumData() {
-  // This would integrate with the Alephium SDK in a real application
-  // For now, this is a placeholder for future implementation
-  
   try {
-    // Using the documentation from https://docs.alephium.org/sdk/getting-started/
-    // Actual implementation would require the Alephium SDK
+    // Import the alephiumAPI dynamically to avoid circular dependencies
+    const alephiumAPI = (await import('@/lib/alephiumAPI')).default;
     
-    return {
-      success: true,
-      message: "This would connect to the Alephium blockchain using the SDK"
-    };
+    // Try to fetch real network stats
+    try {
+      const networkStats = await alephiumAPI.fetchNetworkStats();
+      return {
+        success: true,
+        message: "Connected to Alephium blockchain",
+        data: networkStats
+      };
+    } catch (error) {
+      console.error('Error connecting to Alephium network:', error);
+      return {
+        success: false,
+        message: "Failed to connect to Alephium blockchain"
+      };
+    }
   } catch (error) {
-    console.error('Error connecting to Alephium:', error);
+    console.error('Error importing Alephium API:', error);
     return {
       success: false,
-      message: "Failed to connect to Alephium blockchain"
+      message: "Failed to load Alephium integration"
     };
   }
 }
