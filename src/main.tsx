@@ -11,9 +11,16 @@ import { Buffer } from 'buffer'
 globalThis.Buffer = Buffer
 window.Buffer = Buffer
 
-// Also define process.env if needed by dependencies
-window.process = window.process || {}
-window.process.env = window.process.env || {}
+// Define a minimal process object with the required properties
+interface MinimalProcess {
+  env: Record<string, string | undefined>;
+}
+
+// Create a proper process object for browser environment
+const browserProcess = { env: {} } as MinimalProcess;
+
+// Assign the process object to window
+window.process = browserProcess;
 
 const root = createRoot(document.getElementById('root')!)
 root.render(
