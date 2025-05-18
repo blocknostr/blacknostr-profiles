@@ -23,10 +23,21 @@ const Wallets = () => {
   
   // Get wallet count when ecosystem changes
   useEffect(() => {
-    const savedWallets = localStorage.getItem(`${selectedEcosystem}_wallets`);
-    const wallets = savedWallets ? JSON.parse(savedWallets) : [];
-    setWalletCount(wallets.length);
+    updateWalletCount(selectedEcosystem);
   }, [selectedEcosystem]);
+  
+  // Update wallet count for the selected ecosystem
+  const updateWalletCount = (ecosystem: string) => {
+    const savedWallets = localStorage.getItem(`${ecosystem}_wallets`);
+    const wallets = savedWallets ? JSON.parse(savedWallets) : [];
+    console.log(`${ecosystem} wallets count:`, wallets.length);
+    setWalletCount(wallets.length);
+  };
+  
+  // Handle ecosystem change
+  const handleEcosystemChange = (value: string) => {
+    setSelectedEcosystem(value as Ecosystem);
+  };
   
   // Check if Alephium wallet is connected
   const AlephiumWalletDetector = () => {
@@ -50,7 +61,7 @@ const Wallets = () => {
           localStorage.setItem('alephium_wallets', JSON.stringify(updatedWallets));
           
           // Update wallet count
-          setWalletCount(updatedWallets.length);
+          updateWalletCount("alephium");
           
           toast({
             title: "Wallet Connected",
@@ -70,7 +81,7 @@ const Wallets = () => {
           <h1 className="text-2xl font-bold">Crypto Portfolio Tracker</h1>
           
           {/* Ecosystem Selector */}
-          <Select value={selectedEcosystem} onValueChange={(value) => setSelectedEcosystem(value as Ecosystem)}>
+          <Select value={selectedEcosystem} onValueChange={handleEcosystemChange}>
             <SelectTrigger className="w-[180px] dark:bg-nostr-dark dark:border-white/20">
               <SelectValue placeholder="Select Blockchain" />
             </SelectTrigger>

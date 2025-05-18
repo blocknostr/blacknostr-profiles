@@ -104,39 +104,49 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
     alephium: 'alephium',
   };
 
-  // Load wallet addresses from localStorage
+  // Reset the component state when ecosystem changes
   useEffect(() => {
-    const loadAddressesFromStorage = () => {
-      const savedWallets = localStorage.getItem(`${ecosystem}_wallets`);
-      if (savedWallets) {
-        try {
-          const parsedWallets = JSON.parse(savedWallets);
-          if (parsedWallets && parsedWallets.length > 0) {
-            // Use all wallet addresses
-            const addresses = parsedWallets.map((wallet: any) => wallet.address);
-            console.log(`Found ${addresses.length} ${ecosystem} wallet addresses:`, addresses);
-            setWalletAddresses(addresses);
-            return;
-          }
-        } catch (err) {
-          console.error("Error parsing wallet addresses:", err);
-        }
-      }
-      
-      // If no wallets found, use demo addresses
-      const demoAddresses: Record<string, string[]> = {
-        bitcoin: ['bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'],
-        ethereum: ['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'],
-        alephium: ['raLUPHsewjm1iA2kBzRKXB2ntbj3j4puxbVvsZD8iK3r'],
-      };
-      
-      setWalletAddresses(demoAddresses[ecosystem] || []);
-    };
+    // Clear previous state when ecosystem changes
+    setWalletAddresses([]);
+    setTokens([]);
+    setPortfolioValue(0);
+    setAssetPrices(null);
+    setTokenMetadataLoaded(false);
+    setLoading(true);
     
+    // Load new addresses for the current ecosystem
     loadAddressesFromStorage();
   }, [ecosystem]);
 
-  // Load asset prices from CoinGecko
+  // Load wallet addresses from localStorage for the specific ecosystem
+  const loadAddressesFromStorage = () => {
+    const savedWallets = localStorage.getItem(`${ecosystem}_wallets`);
+    if (savedWallets) {
+      try {
+        const parsedWallets = JSON.parse(savedWallets);
+        if (parsedWallets && parsedWallets.length > 0) {
+          // Use only wallet addresses for the current ecosystem
+          const addresses = parsedWallets.map((wallet: any) => wallet.address);
+          console.log(`Found ${addresses.length} ${ecosystem} wallet addresses:`, addresses);
+          setWalletAddresses(addresses);
+          return;
+        }
+      } catch (err) {
+        console.error(`Error parsing ${ecosystem} wallet addresses:`, err);
+      }
+    }
+    
+    // If no wallets found, use demo addresses specific to this ecosystem
+    const demoAddresses: Record<string, string[]> = {
+      bitcoin: ['bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'],
+      ethereum: ['0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'],
+      alephium: ['raLUPHsewjm1iA2kBzRKXB2ntbj3j4puxbVvsZD8iK3r'],
+    };
+    
+    setWalletAddresses(demoAddresses[ecosystem] || []);
+  };
+
+  // Load asset prices from CoinGecko for the specific ecosystem
   useEffect(() => {
     const loadAssetPrice = async () => {
       setLoading(true);
@@ -163,26 +173,27 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
           throw new Error('Failed to fetch price data');
         }
       } catch (err) {
-        console.error('Error fetching price data:', err);
-        setError('Failed to load price data. Please try again later.');
+        console.error(`Error fetching price data for ${ecosystem}:`, err);
+        setError(`Failed to load price data for ${ecosystem}. Please try again later.`);
         setApiStatus({isLive: false, lastChecked: new Date()});
       } finally {
         setLoading(false);
       }
     };
 
-    loadAssetPrice();
-    
-    // Refresh prices every 60 seconds
-    const interval = setInterval(loadAssetPrice, 60000);
-    
-    return () => clearInterval(interval);
+    if (ecosystem) {
+      loadAssetPrice();
+      
+      // Refresh prices every 60 seconds
+      const interval = setInterval(loadAssetPrice, 60000);
+      return () => clearInterval(interval);
+    }
   }, [ecosystem]);
 
-  // Fetch token balances when wallet address changes
+  // Fetch token balances when wallet address changes for the specific ecosystem
   useEffect(() => {
     const fetchBalances = async () => {
-      if (walletAddresses.length === 0) return;
+      if (walletAddresses.length === 0 || !ecosystem) return;
       
       try {
         // Pre-fetch all token metadata for better performance
@@ -232,7 +243,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
               totalPortfolioValue += mainToken.value;
             }
             
-            // Process other tokens
+            // Process other tokens only for the current ecosystem
             if (ecosystem === 'alephium' && result.tokenBalances && result.tokenBalances.length > 0) {
               console.log(`Found ${result.tokenBalances.length} tokens for wallet ${walletAddress}`);
               
@@ -334,9 +345,9 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
           }
         }
         
-        console.log(`Total portfolio value: $${totalPortfolioValue.toFixed(2)} from ${allTokens.length} tokens`);
+        console.log(`Total portfolio value: $${totalPortfolioValue.toFixed(2)} from ${allTokens.length} tokens for ${ecosystem}`);
         
-        setTokens(tokensForDisplay);
+        setTokens(tokensForDisplay || []);
         setPortfolioValue(totalPortfolioValue);
         setTokenMetadataLoaded(true);
       } catch (err) {
@@ -344,7 +355,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
       }
     };
     
-    if (assetPrices && walletAddresses.length > 0) {
+    if (assetPrices && walletAddresses.length > 0 && ecosystem) {
       fetchBalances();
     }
   }, [ecosystem, walletAddresses, assetPrices]);
@@ -384,7 +395,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
           )}
           <div>
             <h3 className="text-sm font-medium">
-              Network Data: {apiStatus.isLive ? "Live" : "Simulation"}
+              {ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Network Data: {apiStatus.isLive ? "Live" : "Simulation"}
             </h3>
             <p className="text-xs text-muted-foreground">
               Last updated: {apiStatus.lastChecked.toLocaleTimeString()}
@@ -400,7 +411,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
           ) : (
             <span className="inline-flex items-center text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-1 rounded-full">
               <WifiOff className="h-3 w-3 mr-1.5" />
-              Using fallback data
+              Using {ecosystem} fallback data
             </span>
           )}
         </div>
@@ -411,9 +422,11 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle>Portfolio Overview</CardTitle>
+              <CardTitle>{ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Portfolio Overview</CardTitle>
               <CardDescription>
-                {walletAddresses.length > 1 ? `Combined balance of ${walletAddresses.length} wallets` : 'Wallet balance'}
+                {walletAddresses.length > 1 ? 
+                  `Combined balance of ${walletAddresses.length} ${ecosystem} wallets` : 
+                  `${ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} wallet balance`}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -461,7 +474,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                 </div>
 
                 <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                  <span>Tokens:</span>
+                  <span>{ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Tokens:</span>
                   <span className="font-medium">{tokens.length}</span>
                   {tokens.some(t => t.id === 'other-tokens') && (
                     <span className="text-xs">(+{tokens.find(t => t.id === 'other-tokens')?.amount || 0} more)</span>
@@ -469,7 +482,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                 </div>
               </>
             ) : (
-              <div className="text-muted-foreground">No price data available</div>
+              <div className="text-muted-foreground">No price data available for {ecosystem}</div>
             )}
           </div>
           
