@@ -56,16 +56,16 @@ export const getAddressBalance = async (address: string): Promise<{
 export const getAddressTransactions = async (address: string, limit = 20) => {
   try {
     // Use the explorer provider to get full transaction history
-    const transactions = await explorerProvider.addresses.getAddressesAddressTransactions(
+    const response = await explorerProvider.addresses.getAddressesAddressTransactions(
       address, 
       { page: 1, limit }
     );
     
-    if (!transactions || !transactions.transactions) {
+    if (!response || !response.transactions) {
       return [];
     }
     
-    return transactions.transactions.map(tx => ({
+    return response.transactions.map(tx => ({
       hash: tx.hash,
       blockHash: tx.blockHash,
       timestamp: tx.timestamp,
@@ -163,8 +163,12 @@ const fetchNFTMetadata = async (tokenURI?: string) => {
  */
 export const getTokenMetadata = async (tokenId: string) => {
   try {
-    const tokenInfo = await explorerProvider.tokens.getTokensTokenId(tokenId);
-    return tokenInfo;
+    // Use getTokens with id filter instead of getTokensTokenId which doesn't exist
+    const tokens = await explorerProvider.tokens.getTokens({ 'ids': tokenId });
+    if (tokens && tokens.length > 0) {
+      return tokens[0];
+    }
+    return null;
   } catch (error) {
     console.error(`Error fetching token info for ${tokenId}:`, error);
     return null;
@@ -186,13 +190,13 @@ const fetchTokenList = async () => {
     // Try to fetch verified tokens from explorer API
     const tokens = await explorerProvider.tokens.getTokens({ page: 1, limit: 100 });
     
-    if (!tokens || !tokens.tokens || !Array.isArray(tokens.tokens)) {
+    if (!tokens || !Array.isArray(tokens)) {
       return {};
     }
     
     // Convert to a map for easy lookup
     const tokenMap: Record<string, any> = {};
-    for (const token of tokens.tokens) {
+    for (const token of tokens) {
       if (token.id) {
         tokenMap[token.id] = {
           name: token.name || `Token ${token.id.substring(0, 8)}...`,
@@ -412,11 +416,16 @@ export const fetchBalanceHistory = async (address: string, days: number = 30) =>
   try {
     // Try to fetch from explorer API
     try {
-      const history = await explorerProvider.addresses.getAddressesAddressHistory(address);
-      if (history && Array.isArray(history.history) && history.history.length > 0) {
-        return history.history.slice(0, days + 1).map(entry => ({
+      // Use getAddressesAddressAmountHistory instead of getAddressesAddressHistory
+      const history = await explorerProvider.addresses.getAddressesAddressAmountHistory(
+        address, 
+        { duration: days }
+      );
+      
+      if (history && Array.isArray(history) && history.length > 0) {
+        return history.slice(0, days + 1).map(entry => ({
           date: new Date(entry.timestamp).toISOString().split('T')[0],
-          balance: (Number(entry.balance) / 10**18).toFixed(4)
+          balance: (Number(entry.amount) / 10**18).toFixed(4)
         }));
       }
     } catch (historyError) {
