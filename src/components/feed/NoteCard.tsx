@@ -1,17 +1,11 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Repeat, Share, Image, Video } from "lucide-react";
+import { Heart, MessageSquare, Repeat, Share } from "lucide-react";
 import { NostrNote, NostrProfile, formatTimestamp } from "@/lib/nostr";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
-
-interface MediaContent {
-  type: 'image' | 'video';
-  url: string;
-}
 
 interface NoteCardProps {
   note: NostrNote;
@@ -21,67 +15,7 @@ interface NoteCardProps {
 export default function NoteCard({ note, authorProfile }: NoteCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isReposted, setIsReposted] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
-  const [repostCount, setRepostCount] = useState(0);
-  const [replyCount, setReplyCount] = useState(0);
-  const [mediaContent, setMediaContent] = useState<MediaContent[]>([]);
-  
-  const { likeNote, repostNote, replyToNote, checkIfLiked, checkIfReposted, getNoteStats } = useNostr();
-
-  useEffect(() => {
-    // Check if the current user has liked or reposted the note
-    const checkInteractions = async () => {
-      if (note.id) {
-        const isLiked = await checkIfLiked(note.id);
-        const isReposted = await checkIfReposted(note.id);
-        setIsLiked(isLiked);
-        setIsReposted(isReposted);
-      }
-    };
-
-    // Get note stats (likes, reposts, replies count)
-    const getStats = async () => {
-      if (note.id) {
-        const stats = await getNoteStats(note.id);
-        setLikeCount(stats.likeCount);
-        setRepostCount(stats.repostCount);
-        setReplyCount(stats.replyCount);
-      }
-    };
-
-    // Extract media content from note
-    const extractMedia = () => {
-      const mediaList: MediaContent[] = [];
-      
-      // Look for URLs in content
-      const urlRegex = /(https?:\/\/[^\s]+)/g;
-      const urls = note.content.match(urlRegex) || [];
-      
-      // Check if URLs are media
-      urls.forEach(url => {
-        if (url.match(/\.(jpeg|jpg|gif|png)$/)) {
-          mediaList.push({ type: 'image', url });
-        } else if (url.match(/\.(mp4|webm|ogg)$/)) {
-          mediaList.push({ type: 'video', url });
-        }
-      });
-      
-      // Check note tags for media
-      note.tags.forEach(tag => {
-        if (tag[0] === 'media' && tag[1]) {
-          const url = tag[1];
-          const type = tag[2] === 'video' ? 'video' : 'image';
-          mediaList.push({ type, url });
-        }
-      });
-      
-      setMediaContent(mediaList);
-    };
-
-    checkInteractions();
-    getStats();
-    extractMedia();
-  }, [note, checkIfLiked, checkIfReposted, getNoteStats]);
+  const { likeNote, repostNote } = useNostr();
 
   // Format relative time (e.g. "2h ago")
   const formatRelativeTime = (timestamp: number) => {
@@ -98,23 +32,13 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
   };
 
   const handleLike = async () => {
-    const success = await likeNote(note.id);
-    if (success) {
-      setIsLiked(!isLiked);
-      setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
-    }
+    setIsLiked(!isLiked);
+    await likeNote(note.id);
   };
 
   const handleRepost = async () => {
-    const success = await repostNote(note.id);
-    if (success) {
-      setIsReposted(!isReposted);
-      setRepostCount(prev => isReposted ? prev - 1 : prev + 1);
-    }
-  };
-
-  const handleReply = async () => {
-    await replyToNote(note.id);
+    setIsReposted(!isReposted);
+    await repostNote(note.id);
   };
 
   const displayName = authorProfile?.displayName || authorProfile?.name || "Anonymous";
@@ -144,41 +68,11 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
       </CardHeader>
       <CardContent className="p-4 pt-2">
         <p className="whitespace-pre-wrap">{note.content}</p>
-        
-        {mediaContent.length > 0 && (
-          <div className="mt-3 space-y-2">
-            {mediaContent.map((media, index) => (
-              <div key={index} className="rounded-md overflow-hidden">
-                {media.type === 'image' ? (
-                  <AspectRatio ratio={16 / 9}>
-                    <img 
-                      src={media.url} 
-                      alt="Note attachment" 
-                      className="w-full h-full object-cover"
-                    />
-                  </AspectRatio>
-                ) : (
-                  <AspectRatio ratio={16 / 9}>
-                    <video 
-                      src={media.url} 
-                      controls
-                      className="w-full h-full object-contain"
-                    />
-                  </AspectRatio>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </CardContent>
       <CardFooter className="p-2 pt-0 flex justify-between">
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={handleReply}
-        >
+        <Button variant="ghost" size="sm">
           <MessageSquare className="h-4 w-4 mr-1" />
-          <span className="text-xs">{replyCount > 0 ? replyCount : ''} Reply</span>
+          <span className="text-xs">Reply</span>
         </Button>
         <Button 
           variant="ghost" 
@@ -187,7 +81,7 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
           onClick={handleRepost}
         >
           <Repeat className="h-4 w-4 mr-1" />
-          <span className="text-xs">{repostCount > 0 ? repostCount : ''} Repost</span>
+          <span className="text-xs">Repost</span>
         </Button>
         <Button 
           variant="ghost" 
@@ -196,7 +90,7 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
           onClick={handleLike}
         >
           <Heart className="h-4 w-4 mr-1" />
-          <span className="text-xs">{likeCount > 0 ? likeCount : ''} Like</span>
+          <span className="text-xs">Like</span>
         </Button>
         <Button variant="ghost" size="sm">
           <Share className="h-4 w-4 mr-1" />

@@ -1,5 +1,5 @@
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import NoteCard from "./NoteCard";
 import { NostrProfile } from "@/lib/nostr";
@@ -10,16 +10,14 @@ interface NoteFeedProps {
 }
 
 export default function NoteFeed({ pubkey }: NoteFeedProps) {
-  const { notes, fetchNotes, fetchProfile, hasMoreNotes, loadMoreNotes } = useNostr();
+  const { notes, fetchNotes, fetchProfile } = useNostr();
   const [isLoading, setIsLoading] = useState(true);
   const [authorProfiles, setAuthorProfiles] = useState<Record<string, NostrProfile>>({});
-  const observer = useRef<IntersectionObserver | null>(null);
-  const loadingRef = useRef<HTMLDivElement>(null);
-  
+
   useEffect(() => {
     const loadNotes = async () => {
       setIsLoading(true);
-      await fetchNotes(pubkey, 15); // Initial load of 15 posts
+      await fetchNotes(pubkey);
       setIsLoading(false);
     };
 
@@ -47,24 +45,7 @@ export default function NoteFeed({ pubkey }: NoteFeedProps) {
     }
   }, [notes, fetchProfile]);
 
-  // Set up the intersection observer for infinite scrolling
-  const lastElementRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (isLoading) return;
-      if (observer.current) observer.current.disconnect();
-      
-      observer.current = new IntersectionObserver(entries => {
-        if (entries[0].isIntersecting && hasMoreNotes) {
-          loadMoreNotes(10); // Load next 10 notes when scrolled to bottom
-        }
-      });
-      
-      if (node) observer.current.observe(node);
-    },
-    [isLoading, hasMoreNotes, loadMoreNotes]
-  );
-
-  if (isLoading && notes.length === 0) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
@@ -100,35 +81,13 @@ export default function NoteFeed({ pubkey }: NoteFeedProps) {
 
   return (
     <div className="space-y-4">
-      {notes.map((note, index) => {
-        if (index === notes.length - 1) {
-          return (
-            <div key={note.id} ref={lastElementRef}>
-              <NoteCard 
-                note={note} 
-                authorProfile={authorProfiles[note.pubkey]} 
-              />
-            </div>
-          );
-        } else {
-          return (
-            <NoteCard 
-              key={note.id}
-              note={note} 
-              authorProfile={authorProfiles[note.pubkey]} 
-            />
-          );
-        }
-      })}
-      {hasMoreNotes && (
-        <div ref={loadingRef} className="py-4 text-center">
-          <div className="animate-pulse flex justify-center">
-            <div className="h-2 w-2 bg-muted-foreground rounded-full mx-1"></div>
-            <div className="h-2 w-2 bg-muted-foreground rounded-full mx-1"></div>
-            <div className="h-2 w-2 bg-muted-foreground rounded-full mx-1"></div>
-          </div>
-        </div>
-      )}
+      {notes.map((note) => (
+        <NoteCard 
+          key={note.id} 
+          note={note} 
+          authorProfile={authorProfiles[note.pubkey]} 
+        />
+      ))}
     </div>
   );
 }
