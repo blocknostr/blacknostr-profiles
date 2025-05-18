@@ -33,12 +33,18 @@ export type NostrRelayConfig = {
   write: boolean;
 };
 
-// Default relays
+// Default relays - Top 10 most popular NOSTR relays according to NIP
 export const DEFAULT_RELAYS: NostrRelayConfig[] = [
   { url: 'wss://relay.damus.io', read: true, write: true },
   { url: 'wss://relay.snort.social', read: true, write: true },
   { url: 'wss://nostr.wine', read: true, write: true },
   { url: 'wss://relay.current.fyi', read: true, write: true },
+  { url: 'wss://nos.lol', read: true, write: true },
+  { url: 'wss://relay.nostr.band', read: true, write: true },
+  { url: 'wss://nostr.mom', read: true, write: true },
+  { url: 'wss://relay.nostrgraph.net', read: true, write: true },
+  { url: 'wss://purplepag.es', read: true, write: true },
+  { url: 'wss://relay.nostr.bg', read: true, write: true },
 ];
 
 // Local storage keys

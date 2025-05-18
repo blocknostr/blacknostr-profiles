@@ -33,6 +33,10 @@ interface NostrContextType {
   unfollowUser: (pubkey: string) => Promise<boolean>;
   likeNote: (noteId: string) => Promise<boolean>;
   repostNote: (noteId: string) => Promise<boolean>;
+  addRelay: (url: string, read: boolean, write: boolean) => void;
+  removeRelay: (url: string) => void;
+  updateRelay: (url: string, read: boolean, write: boolean) => void;
+  saveRelaysToStorage: () => void;
 }
 
 const NostrContext = createContext<NostrContextType | null>(null);
@@ -63,6 +67,12 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // Create relay pool
         const nostrPool = new SimplePool();
         setPool(nostrPool);
+
+        // Load saved relays or use defaults
+        const savedRelays = localStorage.getItem(NOSTR_KEYS.RELAYS);
+        if (savedRelays) {
+          setRelays(JSON.parse(savedRelays));
+        }
 
         // Load saved keys
         const { privateKey: savedPrivateKey, publicKey: savedPublicKey } = getKeys();
@@ -295,6 +305,90 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return false;
   };
 
+  // Relay management functions
+  const addRelay = (url: string, read: boolean, write: boolean) => {
+    // Check if relay already exists
+    const existingRelay = relays.find(relay => relay.url === url);
+    if (existingRelay) {
+      toast({
+        title: 'Relay already exists',
+        description: 'This relay is already in your list',
+      });
+      return;
+    }
+
+    // Add new relay
+    const newRelays = [...relays, { url, read, write }];
+    setRelays(newRelays);
+    
+    // Save to local storage
+    localStorage.setItem(NOSTR_KEYS.RELAYS, JSON.stringify(newRelays));
+    
+    // Connect to new relay
+    if (pool) {
+      try {
+        pool.ensureRelay(url);
+        toast({
+          title: 'Relay added',
+          description: `${url} has been added to your relays`,
+        });
+      } catch (error) {
+        console.error('Error connecting to relay:', error);
+        toast({
+          title: 'Error connecting to relay',
+          description: 'Could not connect to the relay',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const removeRelay = (url: string) => {
+    // Remove relay from list
+    const newRelays = relays.filter(relay => relay.url !== url);
+    setRelays(newRelays);
+    
+    // Save to local storage
+    localStorage.setItem(NOSTR_KEYS.RELAYS, JSON.stringify(newRelays));
+    
+    // Close connection to relay
+    if (pool) {
+      try {
+        pool.close([url]);
+        toast({
+          title: 'Relay removed',
+          description: `${url} has been removed from your relays`,
+        });
+      } catch (error) {
+        console.error('Error disconnecting from relay:', error);
+      }
+    }
+  };
+
+  const updateRelay = (url: string, read: boolean, write: boolean) => {
+    // Update relay settings
+    const newRelays = relays.map(relay => 
+      relay.url === url ? { ...relay, read, write } : relay
+    );
+    setRelays(newRelays);
+    
+    // Save to local storage
+    localStorage.setItem(NOSTR_KEYS.RELAYS, JSON.stringify(newRelays));
+    
+    toast({
+      title: 'Relay updated',
+      description: `Settings for ${url} have been updated`,
+    });
+  };
+
+  const saveRelaysToStorage = () => {
+    localStorage.setItem(NOSTR_KEYS.RELAYS, JSON.stringify(relays));
+    toast({
+      title: 'Relays saved',
+      description: 'Your relay settings have been saved',
+    });
+  };
+
   const value: NostrContextType = {
     isLoading,
     isAuthenticated,
@@ -314,6 +408,10 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     unfollowUser,
     likeNote,
     repostNote,
+    addRelay,
+    removeRelay,
+    updateRelay,
+    saveRelaysToStorage,
   };
 
   return (
