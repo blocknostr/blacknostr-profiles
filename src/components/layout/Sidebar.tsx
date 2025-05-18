@@ -16,7 +16,7 @@ import {
   PenSquare,
   Users
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -24,7 +24,6 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 export default function Sidebar() {
   const { isAuthenticated, profile, logout, publishNote } = useNostr();
   const [noteContent, setNoteContent] = useState("");
-  const location = useLocation();
   
   const navItems = [
     { icon: <Home className="h-5 w-5" />, label: "Home", href: "/" },
@@ -50,19 +49,15 @@ export default function Sidebar() {
       return;
     }
     
+    // Show toast for demonstration (in a real app, this would open a modal or redirect)
     toast({
       title: "Create a new note",
       description: "This would open a note creation interface"
     });
   };
 
-  // Function to check if a nav item is active
-  const isActive = (href: string) => {
-    return location.pathname === href;
-  };
-
   return (
-    <div className="h-full flex flex-col p-4">
+    <div className="h-screen border-r border-border flex flex-col p-4 w-64 dark:bg-nostr-dark">
       {/* Logo and Theme Toggle */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
@@ -70,29 +65,20 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <div className="flex-grow">
-        <div className="text-sm font-medium mb-2">Navigation</div>
-        <div>
-          <div className="space-y-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                to={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
-                  ${isActive(item.href) 
-                    ? "bg-nostr-blue/10 dark:bg-white/10 text-nostr-blue dark:text-nostr-blue" 
-                    : "hover:bg-nostr-blue/10 dark:hover:bg-white/10"
-                  }`}
-              >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
+      <nav className="space-y-2 flex-grow">
+        {navItems.map((item) => (
+          <Link
+            key={item.label}
+            to={item.href}
+            className="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
+          >
+            {item.icon}
+            <span className="ml-3">{item.label}</span>
+          </Link>
+        ))}
+      </nav>
       
-      {/* Create Note Button */}
+      {/* Create Note Button - Styled prominently */}
       <div className="mt-4 mb-6">
         <Button 
           onClick={handleCreateNote}
@@ -105,7 +91,7 @@ export default function Sidebar() {
 
       {/* User Profile */}
       {isAuthenticated && profile && (
-        <div className="flex items-center space-x-3 p-3 hover:bg-nostr-blue/10 dark:hover:bg-white/5 rounded-md cursor-pointer transition-colors">
+        <div className="flex items-center space-x-3 p-3 hover:bg-muted dark:hover:bg-white/5 rounded-md cursor-pointer">
           <Avatar>
             <AvatarImage src={profile.picture} alt={profile.displayName || "User"} />
             <AvatarFallback>{profile.displayName?.charAt(0) || "U"}</AvatarFallback>
@@ -118,7 +104,7 @@ export default function Sidebar() {
       )}
       
       {isAuthenticated && (
-        <Button variant="outline" className="mt-2 dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 font-medium" onClick={logout}>
+        <Button variant="outline" className="mt-2 dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5" onClick={logout}>
           Logout
         </Button>
       )}

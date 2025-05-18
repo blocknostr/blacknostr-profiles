@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +42,41 @@ const Wallets = () => {
   // Handle ecosystem change
   const handleEcosystemChange = (value: string) => {
     setSelectedEcosystem(value as Ecosystem);
+  };
+  
+  // Check if Alephium wallet is connected
+  const AlephiumWalletDetector = () => {
+    const { connectionStatus, account } = useWallet();
+    
+    useEffect(() => {
+      if (connectionStatus === 'connected' && account) {
+        const walletAddress = account.address;
+        
+        // If Alephium wallet is connected, set the selected ecosystem to Alephium
+        setSelectedEcosystem("alephium");
+        
+        // Save the connected wallet address to localStorage for tracking
+        const savedWallets = localStorage.getItem(`alephium_wallets`);
+        const wallets = savedWallets ? JSON.parse(savedWallets) : [];
+        
+        // Check if wallet is already in the list
+        if (!wallets.some((w: any) => w.address === walletAddress)) {
+          const newWallet = { id: Date.now().toString(), address: walletAddress };
+          const updatedWallets = [...wallets, newWallet];
+          localStorage.setItem('alephium_wallets', JSON.stringify(updatedWallets));
+          
+          // Update wallet count
+          updateWalletCount("alephium");
+          
+          toast({
+            title: "Wallet Connected",
+            description: "Your Alephium wallet has been added to your portfolio tracker.",
+          });
+        }
+      }
+    }, [connectionStatus, account]);
+    
+    return null; // This component doesn't render anything
   };
   
   return (
@@ -120,39 +156,6 @@ const Wallets = () => {
       </AlephiumWalletProvider>
     </MainLayout>
   );
-};
-
-// The AlephiumWalletDetector component
-const AlephiumWalletDetector = () => {
-  const { connectionStatus, account } = useWallet();
-  const [selectedEcosystem, setSelectedEcosystem] = useState<Ecosystem>("bitcoin");
-  
-  useEffect(() => {
-    if (connectionStatus === 'connected' && account) {
-      const walletAddress = account.address;
-      
-      // If Alephium wallet is connected, set the selected ecosystem to Alephium
-      setSelectedEcosystem("alephium");
-      
-      // Save the connected wallet address to localStorage for tracking
-      const savedWallets = localStorage.getItem(`alephium_wallets`);
-      const wallets = savedWallets ? JSON.parse(savedWallets) : [];
-      
-      // Check if wallet is already in the list
-      if (!wallets.some((w: any) => w.address === walletAddress)) {
-        const newWallet = { id: Date.now().toString(), address: walletAddress };
-        const updatedWallets = [...wallets, newWallet];
-        localStorage.setItem('alephium_wallets', JSON.stringify(updatedWallets));
-        
-        toast({
-          title: "Wallet Connected",
-          description: "Your Alephium wallet has been added to your portfolio tracker.",
-        });
-      }
-    }
-  }, [connectionStatus, account]);
-  
-  return null;
 };
 
 export default Wallets;
