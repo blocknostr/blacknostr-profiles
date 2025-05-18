@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -37,6 +38,8 @@ interface TokenBalance {
   logoURI?: string;
   transactions?: any[];
   priceSource?: 'market' | 'estimate';
+  decimals: number;
+  rawAmount?: string;
 }
 
 // Enhanced palette with more distinct colors
@@ -83,6 +86,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
   const [error, setError] = useState<string | null>(null);
   const [walletAddresses, setWalletAddresses] = useState<string[]>([]);
   const [tokens, setTokens] = useState<TokenBalance[]>([]);
+  const [totalTokenCount, setTotalTokenCount] = useState(0);
   const [portfolioValue, setPortfolioValue] = useState(0);
   const [tokenMetadataLoaded, setTokenMetadataLoaded] = useState(false);
   const [apiStatus, setApiStatus] = useState<{isLive: boolean; lastChecked: Date}>({
@@ -109,6 +113,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
     // Clear previous state when ecosystem changes
     setWalletAddresses([]);
     setTokens([]);
+    setTotalTokenCount(0);
     setPortfolioValue(0);
     setAssetPrices(null);
     setTokenMetadataLoaded(false);
@@ -201,6 +206,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         
         let allTokens: TokenBalance[] = [];
         let totalPortfolioValue = 0;
+        let rawTokenCount = 0;
         
         console.log(`Fetching balances for ${walletAddresses.length} ${ecosystem} wallets`);
         
@@ -215,16 +221,23 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
               const mainTokenDecimals = ecosystem === 'alephium' && tokenMappings.ALPH ? 
                 tokenMappings.ALPH.decimals : 18;
               
+              const formattedAmount = formatTokenAmount(result.balance || 0, mainTokenDecimals);
+              
               const mainToken: TokenBalance = {
                 id: coinIds[ecosystem] || ecosystem,
                 symbol: assetPrices?.symbol || ecosystem.toUpperCase(),
                 name: assetPrices?.name || ecosystem,
-                amount: parseFloat(formatTokenAmount(result.balance || 0, mainTokenDecimals)),
-                value: parseFloat((parseFloat(formatTokenAmount(result.balance || 0, mainTokenDecimals)) * (assetPrices?.price || 0)).toFixed(2)),
+                amount: parseFloat(formattedAmount),
+                decimals: mainTokenDecimals,
+                rawAmount: result.balance?.toString(),
+                value: parseFloat((parseFloat(formattedAmount) * (assetPrices?.price || 0)).toFixed(2)),
                 color: tokenColors[0],
                 logoURI: ecosystem === 'alephium' ? 'https://raw.githubusercontent.com/alephium/token-list/master/logos/alephium.png' : undefined,
                 priceSource: 'market'
               };
+              
+              // Increment raw token count
+              rawTokenCount++;
               
               // Get transactions for main token (sample data for demo)
               const mainTokenTxs = await fetchTokenTransactions(mainToken.id, 1, 5);
@@ -246,6 +259,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             // Process other tokens only for the current ecosystem
             if (ecosystem === 'alephium' && result.tokenBalances && result.tokenBalances.length > 0) {
               console.log(`Found ${result.tokenBalances.length} tokens for wallet ${walletAddress}`);
+              rawTokenCount += result.tokenBalances.length;
               
               for (const token of result.tokenBalances) {
                 // Get token metadata or use fallback
@@ -282,7 +296,10 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                   tokenPrice = Math.random() * 3 + (metadata.symbol.includes('LP') ? 10 : 0.05);
                 }
                 
-                const amount = parseFloat(formatTokenAmount(token.amount || 0, metadata.decimals));
+                // Make sure we use the correct number of decimals
+                const tokenDecimals = metadata.decimals || 18;
+                const formattedAmount = formatTokenAmount(token.amount || 0, tokenDecimals);
+                const amount = parseFloat(formattedAmount);
                 const value = parseFloat((amount * tokenPrice).toFixed(2));
                 
                 // Get transactions for this token
@@ -293,6 +310,8 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                   symbol: metadata.symbol,
                   name: metadata.name,
                   amount: amount,
+                  decimals: tokenDecimals,
+                  rawAmount: token.amount?.toString(),
                   value: value,
                   color: tokenColors[(allTokens.length + 1) % tokenColors.length],
                   logoURI: metadata.logoURI,
@@ -318,6 +337,9 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         
         // Sort tokens by value (descending)
         allTokens.sort((a, b) => b.value - a.value);
+
+        // Store the total token count before grouping
+        setTotalTokenCount(rawTokenCount);
         
         // Group small value tokens into an "Other" category if there are more than 8 tokens
         const MAX_CHART_SEGMENTS = 8;
@@ -334,6 +356,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
               symbol: 'OTHER',
               name: 'Other Tokens',
               amount: smallTokens.length,
+              decimals: 0,
               value: parseFloat(otherValue.toFixed(2)),
               color: '#718096', // Gray color for "Other" category
               logoURI: 'https://raw.githubusercontent.com/alephium/token-list/master/logos/unknown.png'
@@ -345,7 +368,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
           }
         }
         
-        console.log(`Total portfolio value: $${totalPortfolioValue.toFixed(2)} from ${allTokens.length} tokens for ${ecosystem}`);
+        console.log(`Total portfolio value: $${totalPortfolioValue.toFixed(2)} from ${allTokens.length} tokens (${rawTokenCount} raw tokens) for ${ecosystem}`);
         
         setTokens(tokensForDisplay || []);
         setPortfolioValue(totalPortfolioValue);
@@ -475,9 +498,9 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
 
                 <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                   <span>{ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Tokens:</span>
-                  <span className="font-medium">{tokens.length}</span>
-                  {tokens.some(t => t.id === 'other-tokens') && (
-                    <span className="text-xs">(+{tokens.find(t => t.id === 'other-tokens')?.amount || 0} more)</span>
+                  <span className="font-medium">{totalTokenCount}</span>
+                  {tokens.length < totalTokenCount && (
+                    <span className="text-xs">(showing top {tokens.length})</span>
                   )}
                 </div>
               </>
@@ -681,9 +704,11 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                         <div className="text-right self-center">
                           {token.id === 'other-tokens' 
                             ? `${token.amount} tokens` 
-                            : token.amount.toLocaleString(undefined, {
-                                maximumFractionDigits: 6
-                              })
+                            : formatTokenAmount(
+                                token.rawAmount || token.amount.toString(), 
+                                token.decimals, 
+                                token.symbol === "ALPH" ? 8 : undefined
+                              )
                           }
                         </div>
                         <div className="text-right self-center font-medium">

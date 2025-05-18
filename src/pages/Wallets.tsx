@@ -28,10 +28,15 @@ const Wallets = () => {
   
   // Update wallet count for the selected ecosystem
   const updateWalletCount = (ecosystem: string) => {
-    const savedWallets = localStorage.getItem(`${ecosystem}_wallets`);
-    const wallets = savedWallets ? JSON.parse(savedWallets) : [];
-    console.log(`${ecosystem} wallets count:`, wallets.length);
-    setWalletCount(wallets.length);
+    try {
+      const savedWallets = localStorage.getItem(`${ecosystem}_wallets`);
+      const wallets = savedWallets ? JSON.parse(savedWallets) : [];
+      console.log(`${ecosystem} wallets count:`, wallets.length);
+      setWalletCount(wallets.length);
+    } catch (error) {
+      console.error(`Error getting wallet count for ${ecosystem}:`, error);
+      setWalletCount(0);
+    }
   };
   
   // Handle ecosystem change
@@ -104,7 +109,12 @@ const Wallets = () => {
             {/* Wallet Manager Dialog - Now inside the card header */}
             <WalletDialog ecosystem={selectedEcosystem}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5 dark:bg-nostr-dark dark:border-white/20">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1.5 dark:bg-nostr-dark dark:border-white/20"
+                  onClick={() => updateWalletCount(selectedEcosystem)} // Refresh count when dialog is opened
+                >
                   <Wallet className="h-4 w-4" />
                   <span>{walletCount}/5</span>
                 </Button>
