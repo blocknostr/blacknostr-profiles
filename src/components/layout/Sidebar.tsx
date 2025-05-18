@@ -20,6 +20,14 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { 
+  SidebarGroup, 
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton
+} from "@/components/ui/sidebar";
 
 export default function Sidebar() {
   const { isAuthenticated, profile, logout, publishNote } = useNostr();
@@ -49,7 +57,6 @@ export default function Sidebar() {
       return;
     }
     
-    // Show toast for demonstration (in a real app, this would open a modal or redirect)
     toast({
       title: "Create a new note",
       description: "This would open a note creation interface"
@@ -57,7 +64,7 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="h-screen border-r border-border flex flex-col p-4 w-64 dark:bg-nostr-dark">
+    <div className="h-full flex flex-col p-4 dark:bg-nostr-dark">
       {/* Logo and Theme Toggle */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
@@ -65,20 +72,28 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="space-y-2 flex-grow">
-        {navItems.map((item) => (
-          <Link
-            key={item.label}
-            to={item.href}
-            className="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
-          >
-            {item.icon}
-            <span className="ml-3">{item.label}</span>
-          </Link>
-        ))}
-      </nav>
+      <SidebarGroup className="flex-grow">
+        <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {navItems.map((item) => (
+              <SidebarMenuItem key={item.label}>
+                <SidebarMenuButton asChild>
+                  <Link
+                    to={item.href}
+                    className="flex items-center gap-3"
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
       
-      {/* Create Note Button - Styled prominently */}
+      {/* Create Note Button */}
       <div className="mt-4 mb-6">
         <Button 
           onClick={handleCreateNote}
