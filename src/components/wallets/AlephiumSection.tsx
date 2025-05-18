@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import alephiumAPI from '@/lib/alephiumAPI';
-import { Wallet, Network, ArrowRight } from 'lucide-react';
+import { Wallet, Network, ArrowRight, Star, Medal, LineChart } from 'lucide-react';
 
 interface AlephiumBalanceData {
   balance: number;
@@ -30,12 +30,25 @@ interface AlephiumNetworkStats {
   isLiveData: boolean;
 }
 
+interface NFTCollection {
+  id: string;
+  name: string;
+  symbol: string;
+  description: string;
+  totalSupply: number;
+  floorPrice: number;
+  totalVolume: number;
+  ownerCount: number;
+}
+
 const AlephiumSection = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [balance, setBalance] = useState<AlephiumBalanceData | null>(null);
   const [networkStats, setNetworkStats] = useState<AlephiumNetworkStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [nftCollections, setNftCollections] = useState<NFTCollection[]>([]);
+  const [loadingNFTs, setLoadingNFTs] = useState(false);
 
   const connectToAlephium = async () => {
     setLoading(true);
@@ -59,6 +72,9 @@ const AlephiumSection = () => {
           title: "Connected to Alephium",
           description: `Network connection established. Block height: ${stats.latestBlocks[0]?.height || 'Unknown'}`,
         });
+        
+        // Also load NFT collections
+        loadNFTCollections();
       } catch (addressError) {
         console.error("Error fetching address data:", addressError);
         setMessage("Connected to network but couldn't fetch address data");
@@ -82,6 +98,18 @@ const AlephiumSection = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const loadNFTCollections = async () => {
+    setLoadingNFTs(true);
+    try {
+      const collections = await alephiumAPI.getNFTCollections(5);
+      setNftCollections(collections);
+    } catch (error) {
+      console.error("Error loading NFT collections:", error);
+    } finally {
+      setLoadingNFTs(false);
     }
   };
 
@@ -210,6 +238,56 @@ const AlephiumSection = () => {
         </Card>
       )}
       
+      {/* NFT Collections from LinxLabs API */}
+      <Card className="dark:bg-nostr-dark dark:border-white/20">
+        <CardHeader>
+          <CardTitle className="text-lg font-medium flex items-center">
+            <Star className="mr-2" />
+            Top NFT Collections
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingNFTs ? (
+            <div className="text-center py-6">Loading NFT collections...</div>
+          ) : nftCollections.length > 0 ? (
+            <div className="space-y-4">
+              {nftCollections.map((collection) => (
+                <div key={collection.id} className="flex items-center justify-between p-3 rounded bg-nostr-dark border border-white/10">
+                  <div className="flex items-center space-x-3">
+                    <Medal className="h-8 w-8 text-amber-400" />
+                    <div>
+                      <p className="font-medium">{collection.name}</p>
+                      <p className="text-xs text-muted-foreground">{collection.symbol}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <div className="flex items-center">
+                      <LineChart className="h-3 w-3 mr-1 text-green-400" />
+                      <span className="text-sm">{collection.floorPrice.toFixed(2)} ALPH</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {collection.totalSupply} items • {collection.ownerCount} owners
+                    </p>
+                  </div>
+                </div>
+              ))}
+              
+              <Button 
+                variant="outline" 
+                className="w-full mt-2 dark:border-white/20"
+                onClick={loadNFTCollections}
+              >
+                Refresh Collections
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center py-6 text-muted-foreground">
+              No NFT collections available. Connect to Alephium network to view collections.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
       <Card className="dark:bg-nostr-dark dark:border-white/20">
         <CardHeader>
           <CardTitle className="text-lg font-medium">Alephium Documentation</CardTitle>
@@ -257,6 +335,16 @@ const AlephiumSection = () => {
                 className="text-nostr-blue hover:underline"
               >
                 Alephium Official Website
+              </a>
+            </li>
+            <li>
+              <a 
+                href="https://api.linxlabs.org/docs/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-nostr-blue hover:underline"
+              >
+                LinxLabs API Documentation
               </a>
             </li>
           </ul>
