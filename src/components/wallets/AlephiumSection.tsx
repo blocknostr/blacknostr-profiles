@@ -2,12 +2,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
-import { NodeProvider, web3, AddressBalance, ExplorerProvider } from '@alephium/web3';
+import { NodeProvider, web3 } from '@alephium/web3';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 
+// Define AddressBalance type based on API response structure
+interface AddressBalance {
+  address: string;
+  balance: string;
+  lockedBalance: string;
+  numTxs: number;
+}
+
 const MAINNET_NODE_URL = 'https://node.mainnet.alephium.org';
-const EXPLORER_URL = 'https://explorer.alephium.org';
 
 const AlephiumSection = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -37,10 +44,6 @@ const AlephiumSection = () => {
       // Initialize the node provider
       const nodeProvider = new NodeProvider(MAINNET_NODE_URL);
       web3.setCurrentNodeProvider(nodeProvider);
-      
-      // Initialize explorer provider
-      const explorerProvider = new ExplorerProvider(EXPLORER_URL);
-      web3.setCurrentExplorerProvider(explorerProvider);
       
       setIsConnected(true);
       setMessage("Connected to Alephium blockchain");
@@ -93,7 +96,7 @@ const AlephiumSection = () => {
       for (const wallet of wallets) {
         try {
           const addressBalance = await nodeProvider.addresses.getAddressesAddressBalance(wallet.address);
-          fetchedBalances.push(addressBalance);
+          fetchedBalances.push(addressBalance as AddressBalance);
         } catch (err) {
           console.error(`Error fetching balance for ${wallet.address}:`, err);
         }

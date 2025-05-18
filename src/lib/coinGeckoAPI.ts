@@ -75,14 +75,15 @@ export async function fetchAlephiumData() {
       throw new Error("Node provider not initialized");
     }
     
-    const selfClique = await nodeProvider.infos.getSelfClique();
-    const blockflowChainInfo = await nodeProvider.blockflow.getBlockflowChainInfo();
+    // Getting infos - using the correct API methods
+    const nodeInfo = await nodeProvider.infos.getInfosNode();
+    const blockflowChainInfo = await nodeProvider.blockflow.getBlockflowChainInfo({ fromGroup: 0, toGroup: 3 });
     
     return {
       success: true,
       message: "Successfully connected to Alephium blockchain",
       data: {
-        selfClique,
+        nodeInfo,
         blockflowChainInfo
       }
     };

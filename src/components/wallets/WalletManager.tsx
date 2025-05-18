@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Trash2, Wallet, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
-import { isValidAddress } from '@alephium/web3';
+import { validateAddress } from '@alephium/web3';
 
 interface WalletManagerProps {
   ecosystem: string;
@@ -78,7 +78,7 @@ const WalletManager = ({ ecosystem }: WalletManagerProps) => {
       } else if (ecosystem === "alephium") {
         // Use Alephium SDK for validation
         try {
-          if (!isValidAddress(newAddress)) {
+          if (!validateAddress(newAddress)) {
             isValid = false;
             errorMsg = "Invalid Alephium address format";
           }

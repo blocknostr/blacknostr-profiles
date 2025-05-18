@@ -4,6 +4,10 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
+// Polyfill Buffer for the browser environment
+import { Buffer } from 'buffer'
+window.Buffer = Buffer
+
 const root = createRoot(document.getElementById('root')!)
 root.render(
   <React.StrictMode>
