@@ -353,15 +353,17 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const content = JSON.stringify(metadata);
 
       // Create metadata event (kind: 0) according to NIP-01
-      const event: Event = {
+      let event: Event = {
         kind: 0, // Metadata event
         pubkey: publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [],
         content: content,
+        id: '', // Placeholder, will be set below
+        sig: '', // Placeholder, will be set below
       };
 
-      // Add id and signature if using local private key
+      // Calculate id from event data
       event.id = getEventHash(event);
       
       // If using extension, sign with it
