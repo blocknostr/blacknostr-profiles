@@ -1,6 +1,23 @@
 
-import { generatePrivateKey, getPublicKey, nip19 } from 'nostr-tools';
+import { generatePrivateKey, getPublicKey, nip19, verifySignature } from 'nostr-tools';
 import type { Event as NostrEvent } from 'nostr-tools';
+
+// Constants for event kinds defined in NIPs
+export const EVENT_KINDS = {
+  METADATA: 0,
+  TEXT_NOTE: 1,
+  RECOMMEND_SERVER: 2,
+  CONTACTS: 3,
+  ENCRYPTED_DIRECT_MESSAGE: 4,
+  DELETION: 5,
+  REACTION: 7,
+  CHANNEL_CREATION: 40,
+  CHANNEL_METADATA: 41,
+  CHANNEL_MESSAGE: 42,
+  CHANNEL_HIDE_MESSAGE: 43,
+  CHANNEL_MUTE_USER: 44,
+  REPOST: 6
+};
 
 // Types based on NOSTR Implementation Possibilities (NIPs)
 export type NostrProfile = {
@@ -25,6 +42,12 @@ export type NostrMetadata = {
   website?: string;
   nip05?: string;
   lud16?: string;
+};
+
+export type NostrStats = {
+  likes: number;
+  replies: number;
+  reposts: number;
 };
 
 export type NostrNote = {
@@ -179,4 +202,14 @@ export const parseNote = (event: NostrEvent): NostrNote => {
     sig: event.sig,
     nip19Id: nip19.noteEncode(event.id),
   };
+};
+
+// Verify event signature (NIP-01 compliance)
+export const verifyEventSignature = (event: NostrEvent): boolean => {
+  try {
+    return verifySignature(event);
+  } catch (error) {
+    console.error('Error verifying event signature:', error);
+    return false;
+  }
 };
