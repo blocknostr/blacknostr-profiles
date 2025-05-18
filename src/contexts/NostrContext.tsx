@@ -1,16 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SimplePool, Event, getEventHash, signEvent, nip19 } from 'nostr-tools';
+import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
 import {
   DEFAULT_RELAYS,
   NostrRelayConfig,
   NostrProfile,
   NostrNote,
+  NostrMetadata,
   getKeys,
   generateKeys,
   saveKeys,
   parseProfile,
   parseNote,
+  profileToMetadata,
   NOSTR_KEYS,
   hexToNpub
 } from '@/lib/nostr';
@@ -30,6 +32,7 @@ interface NostrContextType {
   createAccount: () => void;
   fetchProfile: (pubkey: string) => Promise<NostrProfile | null>;
   fetchNotes: (pubkey?: string) => Promise<NostrNote[]>;
+  updateProfile: (updatedProfile: NostrProfile) => Promise<boolean>;
   publishNote: (content: string) => Promise<boolean>;
   followUser: (pubkey: string) => Promise<boolean>;
   unfollowUser: (pubkey: string) => Promise<boolean>;
@@ -334,6 +337,79 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const updateProfile = async (updatedProfile: NostrProfile): Promise<boolean> => {
+    if (!pool || !privateKey || !publicKey) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to update your profile",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    try {
+      // Convert the profile to NIP-01 metadata format
+      const metadata = profileToMetadata(updatedProfile);
+      const content = JSON.stringify(metadata);
+
+      // Create metadata event (kind: 0) according to NIP-01
+      const event: Event = {
+        kind: 0, // Metadata event
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [],
+        content: content,
+      };
+
+      // Add id and signature if using local private key
+      event.id = getEventHash(event);
+      
+      // If using extension, sign with it
+      if (window.nostr) {
+        const signedEvent = await window.nostr.signEvent(event);
+        
+        // Publish to relays
+        await Promise.all(
+          relays
+            .filter(relay => relay.write)
+            .map(relay => pool.publish([relay.url], signedEvent))
+        );
+      } else if (privateKey) {
+        // Sign with local private key
+        event.sig = signEvent(event, privateKey);
+        
+        // Publish to relays
+        await Promise.all(
+          relays
+            .filter(relay => relay.write)
+            .map(relay => pool.publish([relay.url], event))
+        );
+      }
+
+      // Update local state
+      setProfile({
+        ...updatedProfile,
+        pubkey: publicKey,
+        npub: hexToNpub(publicKey)
+      });
+
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been successfully updated",
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Error updating profile",
+        description: "There was an error updating your profile",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
   const publishNote = async (content: string): Promise<boolean> => {
     if (!pool || !privateKey || !publicKey) return false;
 
@@ -483,6 +559,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     createAccount,
     fetchProfile,
     fetchNotes,
+    updateProfile,
     publishNote,
     followUser,
     unfollowUser,

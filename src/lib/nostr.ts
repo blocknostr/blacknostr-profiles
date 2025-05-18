@@ -16,6 +16,17 @@ export type NostrProfile = {
   lud16?: string; // Lightning address
 };
 
+export type NostrMetadata = {
+  name?: string;
+  display_name?: string; // NIP-01 uses snake_case
+  picture?: string;
+  banner?: string;
+  about?: string;
+  website?: string;
+  nip05?: string;
+  lud16?: string;
+};
+
 export type NostrNote = {
   id: string;
   pubkey: string;
@@ -140,6 +151,20 @@ export const parseProfile = (event: NostrEvent): NostrProfile => {
       npub: hexToNpub(event.pubkey),
     };
   }
+};
+
+// Convert profile to metadata format for publishing (NIP-01)
+export const profileToMetadata = (profile: NostrProfile): NostrMetadata => {
+  return {
+    name: profile.name,
+    display_name: profile.displayName, // Using snake_case as per NIP-01
+    about: profile.about,
+    picture: profile.picture,
+    banner: profile.banner,
+    website: profile.website,
+    nip05: profile.nip05,
+    lud16: profile.lud16,
+  };
 };
 
 // Parse note content
