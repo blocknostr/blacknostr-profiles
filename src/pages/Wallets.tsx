@@ -8,6 +8,7 @@ import WalletManager from "@/components/wallets/WalletManager";
 import PortfolioOverview from "@/components/wallets/PortfolioOverview";
 import WalletDapps from "@/components/wallets/WalletDapps";
 import AlephiumSection from "@/components/wallets/AlephiumSection";
+import { AlephiumWalletProvider } from "@alephium/web3-react";
 
 // Define the blockchain ecosystems
 type Ecosystem = "bitcoin" | "ethereum" | "alephium";
@@ -63,7 +64,9 @@ const Wallets = () => {
               
               {selectedEcosystem === "alephium" && (
                 <TabsContent value="alephium">
-                  <AlephiumSection />
+                  <AlephiumWalletProvider network="mainnet">
+                    <AlephiumSection />
+                  </AlephiumWalletProvider>
                 </TabsContent>
               )}
             </Tabs>

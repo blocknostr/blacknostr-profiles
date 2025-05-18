@@ -5,6 +5,9 @@ import { useEffect, useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import alephiumAPI from '@/lib/alephiumAPI';
 import { Wallet, Network, ArrowRight, Star, Medal, LineChart } from 'lucide-react';
+import { getDefaultAlephiumWallet } from '@alephium/get-extension-wallet';
+import { useWallet } from '@alephium/web3-react';
+import { addressFromPublicKey } from '@alephium/web3-wallet';
 
 interface AlephiumBalanceData {
   balance: number;
@@ -49,43 +52,69 @@ const AlephiumSection = () => {
   const [loading, setLoading] = useState(false);
   const [nftCollections, setNftCollections] = useState<NFTCollection[]>([]);
   const [loadingNFTs, setLoadingNFTs] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  
+  // Use Alephium wallet hook
+  const { connectionStatus, account, connect, disconnect } = useWallet();
+
+  useEffect(() => {
+    // Check connection status whenever it changes
+    if (connectionStatus === 'connected' && account) {
+      setIsConnected(true);
+      setWalletAddress(account.address);
+      loadWalletData(account.address);
+      setMessage("Connected to Alephium wallet");
+    } else if (connectionStatus === 'disconnected') {
+      setIsConnected(false);
+      setWalletAddress(null);
+      setBalance(null);
+      setMessage(null);
+    }
+  }, [connectionStatus, account]);
+
+  const loadWalletData = async (address: string) => {
+    try {
+      const balanceData = await alephiumAPI.getAddressBalance(address);
+      setBalance(balanceData);
+      
+      // Load NFT collections after successful connection
+      loadNFTCollections();
+      
+      // Load network stats as well
+      loadNetworkStats();
+    } catch (error) {
+      console.error("Error loading wallet data:", error);
+      toast({
+        title: "Data Loading Error",
+        description: "Could not load wallet data. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const loadNetworkStats = async () => {
+    try {
+      const stats = await alephiumAPI.fetchNetworkStats();
+      setNetworkStats(stats);
+    } catch (error) {
+      console.error("Error loading network stats:", error);
+    }
+  };
 
   const connectToAlephium = async () => {
     setLoading(true);
     
     try {
-      // Fetch network stats to check connectivity
-      const stats = await alephiumAPI.fetchNetworkStats();
-      setNetworkStats(stats);
+      // First check if network stats can be loaded
+      await loadNetworkStats();
       
-      // For demonstration purposes, we'll use a sample address
-      // In a real app, this would be the user's address connected via wallet
-      const sampleAddress = '1DrDyTr9RpRsQnDnXo2YRiPzPW4ooHX5LLoqXrqfMrpQH';
+      // Then try to connect wallet using @alephium/web3-react
+      await connect();
       
-      try {
-        const balanceData = await alephiumAPI.getAddressBalance(sampleAddress);
-        setBalance(balanceData);
-        setIsConnected(true);
-        setMessage("Connected to Alephium blockchain");
-        
-        toast({
-          title: "Connected to Alephium",
-          description: `Network connection established. Block height: ${stats.latestBlocks[0]?.height || 'Unknown'}`,
-        });
-        
-        // Also load NFT collections
-        loadNFTCollections();
-      } catch (addressError) {
-        console.error("Error fetching address data:", addressError);
-        setMessage("Connected to network but couldn't fetch address data");
-        setIsConnected(true);
-        
-        toast({
-          title: "Partial Connection",
-          description: "Connected to Alephium network but couldn't fetch wallet data",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Connecting to Alephium",
+        description: "Please approve the connection request in your wallet",
+      });
     } catch (error) {
       console.error("Error connecting to Alephium:", error);
       setMessage("Failed to connect to Alephium blockchain");
@@ -98,6 +127,23 @@ const AlephiumSection = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const disconnectWallet = async () => {
+    try {
+      await disconnect();
+      setIsConnected(false);
+      setWalletAddress(null);
+      setBalance(null);
+      setMessage(null);
+      
+      toast({
+        title: "Disconnected",
+        description: "Your wallet has been disconnected",
+      });
+    } catch (error) {
+      console.error("Error disconnecting wallet:", error);
     }
   };
   
@@ -144,8 +190,23 @@ const AlephiumSection = () => {
               {loading ? "Connecting..." : "Connect to Alephium"}
             </Button>
           ) : (
-            <div className="text-green-500 font-medium mb-4">
-              ✓ Connected to Alephium
+            <div className="space-y-2">
+              <div className="text-green-500 font-medium">
+                ✓ Connected to Alephium
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-sm opacity-80 truncate max-w-[200px]">
+                  {walletAddress}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={disconnectWallet}
+                  className="dark:border-white/20"
+                >
+                  Disconnect
+                </Button>
+              </div>
             </div>
           )}
           
@@ -157,7 +218,7 @@ const AlephiumSection = () => {
           
           {balance && (
             <div className="mt-4 p-4 rounded bg-nostr-dark border border-white/10">
-              <h3 className="text-lg font-medium mb-2">Sample Wallet Balance</h3>
+              <h3 className="text-lg font-medium mb-2">Wallet Balance</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Balance:</p>
@@ -177,6 +238,7 @@ const AlephiumSection = () => {
         </CardContent>
       </Card>
       
+      {/* Network Stats Card */}
       {networkStats && (
         <Card className="dark:bg-nostr-dark dark:border-white/20">
           <CardHeader>
@@ -288,6 +350,7 @@ const AlephiumSection = () => {
         </CardContent>
       </Card>
       
+      {/* Documentation Card */}
       <Card className="dark:bg-nostr-dark dark:border-white/20">
         <CardHeader>
           <CardTitle className="text-lg font-medium">Alephium Documentation</CardTitle>
