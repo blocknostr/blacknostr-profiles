@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
@@ -7,7 +6,6 @@ import alephiumAPI from '@/lib/alephiumAPI';
 import { Wallet, Network, ArrowRight, Star, Medal, LineChart } from 'lucide-react';
 import { getDefaultAlephiumWallet } from '@alephium/get-extension-wallet';
 import { useWallet } from '@alephium/web3-react';
-import { addressFromPublicKey } from '@alephium/web3-wallet';
 
 interface AlephiumBalanceData {
   balance: number;
