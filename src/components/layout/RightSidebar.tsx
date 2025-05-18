@@ -6,7 +6,7 @@ import { Search } from "lucide-react";
 
 export default function RightSidebar() {
   return (
-    <div className="h-screen w-80 p-4 border-l border-border hidden lg:block dark:bg-nostr-dark dark:border-white/10 fixed right-0">
+    <div className="h-screen w-80 p-4 border-l border-border dark:bg-nostr-dark dark:border-white/10">
       {/* Search */}
       <div className="relative mb-6">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -27,7 +27,7 @@ export default function RightSidebar() {
               <div className="flex items-center space-x-2">
                 <div className="h-10 w-10 rounded-full bg-muted dark:bg-black/50" />
                 <div>
-                  <p className="text-sm font-medium">User {i}</p>
+                  <p className="text-sm font-medium truncate">User {i}</p>
                   <p className="text-xs text-muted-foreground">@user{i}</p>
                 </div>
               </div>

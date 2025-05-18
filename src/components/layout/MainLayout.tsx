@@ -4,51 +4,77 @@ import Sidebar from "./Sidebar";
 import RightSidebar from "./RightSidebar";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Mobile sidebar toggle */}
-      <div className="md:hidden fixed top-4 left-4 z-20">
+      {/* Mobile sidebar toggles */}
+      <div className="md:hidden fixed top-4 left-4 z-30">
         <Button
           variant="outline"
           size="icon"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+          onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
           className="dark:bg-black dark:border-white/10"
         >
           <Menu className="h-5 w-5" />
         </Button>
       </div>
 
-      {/* Sidebar - hidden on mobile unless toggled */}
-      <div className={`
-        md:block fixed md:static top-0 left-0 h-screen z-10
-        transform transition-transform duration-300 ease-in-out w-64
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        dark:border-r dark:border-white/10
-      `}>
-        <Sidebar />
-      </div>
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="w-full min-h-screen"
+      >
+        {/* Left Sidebar - hidden on mobile unless toggled */}
+        <div className={`
+          md:relative fixed top-0 left-0 h-screen z-20 w-80
+          transform transition-transform duration-300 ease-in-out
+          ${leftSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+        `}>
+          <ResizablePanel 
+            defaultSize={20} 
+            minSize={15} 
+            maxSize={30}
+            className="h-full hidden md:block"
+          >
+            <Sidebar />
+          </ResizablePanel>
+          
+          {/* Mobile sidebar (non-resizable) */}
+          <div className="md:hidden h-full">
+            <Sidebar />
+          </div>
+        </div>
 
-      {/* Main content */}
-      <div className="flex-grow max-w-3xl mx-auto px-4 py-6 md:px-6 md:ml-64">
-        {children}
-      </div>
+        {/* Main content */}
+        <ResizableHandle withHandle className="hidden md:flex" />
+        
+        <ResizablePanel defaultSize={60}>
+          <div className="flex-grow max-w-3xl mx-auto px-4 py-6 md:px-6">
+            {children}
+          </div>
+        </ResizablePanel>
 
-      {/* Right sidebar */}
-      <RightSidebar />
+        {/* Right sidebar - always hidden on mobile */}
+        <ResizableHandle withHandle className="hidden lg:flex" />
+        
+        <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="hidden lg:block">
+          <RightSidebar />
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
+      {leftSidebarOpen && (
         <div 
-          className="md:hidden fixed inset-0 bg-black/20 dark:bg-black/50 z-0"
-          onClick={() => setSidebarOpen(false)}
+          className="md:hidden fixed inset-0 bg-black/20 dark:bg-black/50 z-10"
+          onClick={() => setLeftSidebarOpen(false)}
         />
       )}
     </div>
