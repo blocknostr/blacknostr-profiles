@@ -32,18 +32,16 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </Button>
         </div>
 
-        {/* Sidebar - hidden on mobile unless toggled */}
+        {/* Left sidebar - fixed width and styling similar to right sidebar */}
         <div className={`
-          md:block fixed md:static top-0 left-0 h-screen z-10
+          md:block fixed md:static top-0 left-0 h-screen z-10 w-64
           transform transition-transform duration-300 ease-in-out 
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
           dark:border-r dark:border-white/10
         `}>
-          <ShadcnSidebar className="w-64">
-            <SidebarContent>
-              <Sidebar />
-            </SidebarContent>
-          </ShadcnSidebar>
+          <div className="h-screen w-64 border-r border-border dark:bg-nostr-dark dark:border-white/10">
+            <Sidebar />
+          </div>
         </div>
 
         {/* Main content - centered with consistent width */}

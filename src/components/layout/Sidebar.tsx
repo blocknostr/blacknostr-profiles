@@ -20,14 +20,6 @@ import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
-import { 
-  SidebarGroup, 
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton
-} from "@/components/ui/sidebar";
 
 export default function Sidebar() {
   const { isAuthenticated, profile, logout, publishNote } = useNostr();
@@ -70,7 +62,7 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="h-full flex flex-col p-4 dark:bg-nostr-dark">
+    <div className="h-full flex flex-col p-4">
       {/* Logo and Theme Toggle */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
@@ -78,30 +70,27 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <SidebarGroup className="flex-grow">
-        <SidebarGroupLabel className="font-medium text-sm">Navigation</SidebarGroupLabel>
-        <SidebarGroupContent>
-          <SidebarMenu>
+      <div className="flex-grow">
+        <div className="text-sm font-medium mb-2">Navigation</div>
+        <div>
+          <div className="space-y-1">
             {navItems.map((item) => (
-              <SidebarMenuItem key={item.label}>
-                <SidebarMenuButton 
-                  asChild 
-                  isActive={isActive(item.href)}
-                  className="hover:bg-nostr-blue/10 dark:hover:bg-white/10 font-medium"
-                >
-                  <Link
-                    to={item.href}
-                    className="flex items-center gap-3"
-                  >
-                    <span className={isActive(item.href) ? "text-nostr-blue" : ""}>{item.icon}</span>
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <Link
+                key={item.label}
+                to={item.href}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+                  ${isActive(item.href) 
+                    ? "bg-nostr-blue/10 dark:bg-white/10 text-nostr-blue dark:text-nostr-blue" 
+                    : "hover:bg-nostr-blue/10 dark:hover:bg-white/10"
+                  }`}
+              >
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+              </Link>
             ))}
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
+          </div>
+        </div>
+      </div>
       
       {/* Create Note Button */}
       <div className="mt-4 mb-6">
