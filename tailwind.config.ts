@@ -54,11 +54,11 @@ export default {
 					foreground: 'hsl(var(--card-foreground))'
 				},
 				nostr: {
-					primary: '#000000',
-					secondary: '#666666',
-					dark: '#121212',
-					light: '#FFFFFF',
-					muted: '#888888'
+					primary: '#8B5CF6',
+					secondary: '#0EA5E9',
+					dark: '#1A1F2C',
+					light: '#F8FAFC',
+					muted: '#94A3B8'
 				}
 			},
 			borderRadius: {
