@@ -54,6 +54,20 @@ export const NOSTR_KEYS = {
   RELAYS: 'nostr_relays',
 };
 
+// Add TypeScript interface for window.nostr (NIP-07)
+declare global {
+  interface Window {
+    nostr?: {
+      getPublicKey: () => Promise<string>;
+      signEvent: (event: any) => Promise<any>;
+      nip04?: {
+        encrypt: (pubkey: string, plaintext: string) => Promise<string>;
+        decrypt: (pubkey: string, ciphertext: string) => Promise<string>;
+      };
+    };
+  }
+}
+
 // Generate new keys
 export const generateKeys = () => {
   const sk = generatePrivateKey();

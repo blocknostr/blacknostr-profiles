@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SimplePool, Event } from 'nostr-tools';
+import { SimplePool, Event, getEventHash, signEvent, nip19 } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
 import {
   DEFAULT_RELAYS,
@@ -11,7 +11,8 @@ import {
   saveKeys,
   parseProfile,
   parseNote,
-  NOSTR_KEYS
+  NOSTR_KEYS,
+  hexToNpub
 } from '@/lib/nostr';
 
 interface NostrContextType {
@@ -23,7 +24,8 @@ interface NostrContextType {
   notes: NostrNote[];
   relays: NostrRelayConfig[];
   pool: SimplePool | null;
-  login: () => void;
+  login: (pubkey?: string) => void;
+  loginWithPrivateKey: (privateKey: string) => void;
   logout: () => void;
   createAccount: () => void;
   fetchProfile: (pubkey: string) => Promise<NostrProfile | null>;
@@ -113,8 +115,37 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  const login = () => {
+  const login = (pubkey?: string) => {
     try {
+      // If pubkey is provided, use extension login
+      if (pubkey) {
+        setPublicKey(pubkey);
+        setNpub(hexToNpub(pubkey));
+        setIsAuthenticated(true);
+        
+        // Save the pubkey to local storage (without private key)
+        localStorage.setItem(NOSTR_KEYS.PUBLIC_KEY, pubkey);
+        
+        toast({
+          title: 'Logged in with extension',
+          description: 'Successfully connected to your NOSTR extension',
+        });
+
+        // Fetch profile and notes
+        fetchProfile(pubkey).then(userProfile => {
+          if (userProfile) {
+            setProfile(userProfile);
+          }
+        });
+
+        fetchNotes(pubkey).then(userNotes => {
+          setNotes(userNotes);
+        });
+        
+        return;
+      }
+      
+      // Otherwise, standard local storage login
       const { privateKey: savedPrivateKey, publicKey: savedPublicKey } = getKeys();
       
       if (!savedPrivateKey || !savedPublicKey) {
@@ -156,12 +187,56 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const loginWithPrivateKey = (inputPrivateKey: string) => {
+    try {
+      // Get public key from private key
+      const derivedPublicKey = getPublicKey(inputPrivateKey);
+      
+      // Save keys
+      saveKeys(inputPrivateKey);
+      
+      setPrivateKey(inputPrivateKey);
+      setPublicKey(derivedPublicKey);
+      setNpub(hexToNpub(derivedPublicKey));
+      setIsAuthenticated(true);
+      
+      toast({
+        title: 'Logged in successfully',
+        description: 'Welcome to NOSTR',
+      });
+
+      // Fetch profile and notes
+      fetchProfile(derivedPublicKey).then(userProfile => {
+        if (userProfile) {
+          setProfile(userProfile);
+        }
+      });
+
+      fetchNotes(derivedPublicKey).then(userNotes => {
+        setNotes(userNotes);
+      });
+    } catch (error) {
+      console.error('Error logging in with private key:', error);
+      toast({
+        title: 'Invalid private key',
+        description: 'The provided private key is not valid',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
   const logout = () => {
     setPrivateKey(null);
     setPublicKey(null);
     setProfile(null);
     setNotes([]);
     setIsAuthenticated(false);
+    
+    // Clear local storage if the keys were stored there
+    localStorage.removeItem(NOSTR_KEYS.PRIVATE_KEY);
+    localStorage.removeItem(NOSTR_KEYS.PUBLIC_KEY);
+    
     toast({
       title: 'Logged out successfully',
     });
@@ -176,12 +251,15 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       setPrivateKey(newPrivateKey);
       setPublicKey(newPublicKey);
+      setNpub(hexToNpub(newPublicKey));
       setIsAuthenticated(true);
       
       toast({
         title: 'Account created successfully',
         description: 'Welcome to NOSTR',
       });
+
+      return { privateKey: newPrivateKey, publicKey: newPublicKey };
     } catch (error) {
       console.error('Error creating account:', error);
       toast({
@@ -189,6 +267,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         description: 'Please try again',
         variant: 'destructive',
       });
+      throw error;
     }
   };
 
@@ -399,6 +478,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     relays,
     pool,
     login,
+    loginWithPrivateKey,
     logout,
     createAccount,
     fetchProfile,
@@ -420,3 +500,9 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     </NostrContext.Provider>
   );
 };
+
+function getPublicKey(privateKey: string): string {
+  // Implement this function to derive the public key from the private key
+  // This is a placeholder for now
+  return 'derivedPublicKey';
+}
