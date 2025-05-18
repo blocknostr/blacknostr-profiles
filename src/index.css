@@ -14,16 +14,16 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 210 100% 40%; /* Changed from purple to blue */
+    --primary: 195 100% 50%; /* Accent Blue #00A3FF */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 100% 40%; /* Changed from cyan to blue */
+    --secondary: 195 100% 50%; /* Accent Blue #00A3FF */
     --secondary-foreground: 210 40% 98%;
 
     --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted-foreground: 0 0% 63%; /* Light Gray #A0A0A0 */
 
-    --accent: 210 100% 40%; /* Changed from purple to blue */
+    --accent: 195 100% 50%; /* Accent Blue #00A3FF */
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 84% 60%;
@@ -37,32 +37,32 @@
   }
 
   .dark {
-    --background: 0 0% 0%; /* Pure black (#000000) */
-    --foreground: 0 0% 100%; /* Pure white (#FFFFFF) */
+    --background: 225 9% 9%; /* Dark Background #141518 */
+    --foreground: 0 0% 100%; /* White #FFFFFF */
 
-    --card: 0 0% 4%; /* Slightly lighter than background */
+    --card: 220 8% 13%; /* Dark Gray for Cards #1E2023 */
     --card-foreground: 0 0% 100%;
 
-    --popover: 0 0% 0%;
+    --popover: 225 9% 9%; /* Dark Background #141518 */
     --popover-foreground: 0 0% 100%;
 
-    --primary: 210 100% 40%; /* Changed from purple to blue */
+    --primary: 195 100% 50%; /* Accent Blue #00A3FF */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 100% 40%; /* Changed from cyan to blue */
+    --secondary: 195 100% 50%; /* Accent Blue #00A3FF */
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 0 0% 15%; /* Dark gray background */
-    --muted-foreground: 0 0% 83%; /* Light gray text (#D3D3D3) */
+    --muted: 220 8% 13%; /* Dark Gray #1E2023 */
+    --muted-foreground: 0 0% 63%; /* Light Gray #A0A0A0 */
 
-    --accent: 210 100% 40%; /* Changed from cyan to blue */
+    --accent: 195 100% 50%; /* Accent Blue #00A3FF */
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 20%; /* Dark borders */
-    --input: 0 0% 20%;
+    --border: 0 0% 25%; /* Slightly lighter than background for borders */
+    --input: 0 0% 25%;
     --ring: 0 0% 83%;
   }
 }
@@ -102,7 +102,7 @@
   }
 
   .dark .glass-morphism {
-    @apply backdrop-blur-xl bg-black/30 border border-white/10 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.5)];
+    @apply backdrop-blur-xl bg-nostr-dark/30 border border-white/10 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.5)];
   }
   
   .dark .text-gradient {
