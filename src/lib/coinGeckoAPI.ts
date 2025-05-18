@@ -1,5 +1,7 @@
 
 // CoinGecko API utility functions
+import { getTokenMetadata, getFallbackTokenData, formatTokenAmount, getAllCoinGeckoIds } from "./tokenMetadata";
+
 interface CoinPrice {
   id: string;
   symbol: string;
@@ -14,6 +16,17 @@ interface CoinPrice {
   image: string;
 }
 
+// Cache for token prices to reduce API calls
+interface PriceCache {
+  [coinId: string]: {
+    price: number;
+    timestamp: number;
+  };
+}
+
+const priceCache: PriceCache = {};
+const PRICE_CACHE_DURATION = 300000; // 5 minutes
+
 export async function fetchCoinPrice(coinId: string): Promise<CoinPrice | null> {
   try {
     const response = await fetch(
@@ -27,6 +40,11 @@ export async function fetchCoinPrice(coinId: string): Promise<CoinPrice | null> 
     const data = await response.json();
     
     if (data && data.length > 0) {
+      // Update price cache
+      priceCache[coinId] = {
+        price: data[0].current_price,
+        timestamp: Date.now()
+      };
       return data[0];
     }
     
@@ -34,6 +52,53 @@ export async function fetchCoinPrice(coinId: string): Promise<CoinPrice | null> 
   } catch (error) {
     console.error('Error fetching coin price:', error);
     return null;
+  }
+}
+
+export async function fetchAllTokenPrices(): Promise<Record<string, number>> {
+  try {
+    const coinIds = getAllCoinGeckoIds();
+    if (coinIds.length === 0) return {};
+    
+    // Filter out IDs that have a recent cache
+    const now = Date.now();
+    const idsToFetch = coinIds.filter(id => 
+      !priceCache[id] || (now - priceCache[id].timestamp > PRICE_CACHE_DURATION)
+    );
+    
+    if (idsToFetch.length > 0) {
+      const idsString = idsToFetch.join(',');
+      const response = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${idsString}&vs_currencies=usd`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`CoinGecko API returned ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Update price cache
+      Object.entries(data).forEach(([id, priceData]: [string, any]) => {
+        priceCache[id] = {
+          price: priceData.usd,
+          timestamp: now
+        };
+      });
+    }
+    
+    // Return all prices from cache
+    const prices: Record<string, number> = {};
+    coinIds.forEach(id => {
+      if (priceCache[id]) {
+        prices[id] = priceCache[id].price;
+      }
+    });
+    
+    return prices;
+  } catch (error) {
+    console.error('Error fetching all token prices:', error);
+    return {};
   }
 }
 
@@ -48,7 +113,18 @@ export async function fetchTokenBalance(ecosystem: string, address: string): Pro
       // Import dynamically to avoid circular dependencies
       const alephiumAPI = await import('./alephiumAPI').then(module => module.default);
       const balance = await alephiumAPI.getAddressBalance(address);
-      return { balance: balance.balance };
+      
+      // If this is an Alephium address, also fetch token balances
+      try {
+        const tokenBalances = await alephiumAPI.getAddressTokens(address);
+        return { 
+          balance: balance.balance,
+          tokenBalances: tokenBalances 
+        };
+      } catch (tokenError) {
+        console.error('Error fetching Alephium token balances:', tokenError);
+        return { balance: balance.balance };
+      }
     }
     
     return { balance: 0 };

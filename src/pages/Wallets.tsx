@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,13 +8,27 @@ import WalletManager from "@/components/wallets/WalletManager";
 import PortfolioOverview from "@/components/wallets/PortfolioOverview";
 import WalletDapps from "@/components/wallets/WalletDapps";
 import AlephiumSection from "@/components/wallets/AlephiumSection";
-import { AlephiumWalletProvider } from "@alephium/web3-react";
+import { AlephiumWalletProvider, useWallet } from "@alephium/web3-react";
 
 // Define the blockchain ecosystems
 type Ecosystem = "bitcoin" | "ethereum" | "alephium";
 
 const Wallets = () => {
   const [selectedEcosystem, setSelectedEcosystem] = useState<Ecosystem>("bitcoin");
+  
+  // Check if Alephium wallet is connected
+  const AlephiumWalletDetector = () => {
+    const { connectionStatus } = useWallet();
+    
+    useEffect(() => {
+      if (connectionStatus === 'connected') {
+        // If Alephium wallet is connected, set the selected ecosystem to Alephium
+        setSelectedEcosystem("alephium");
+      }
+    }, [connectionStatus]);
+    
+    return null; // This component doesn't render anything
+  };
   
   return (
     <MainLayout>
@@ -73,6 +87,11 @@ const Wallets = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Wrap this detector in the provider so it can detect wallet connection */}
+      <AlephiumWalletProvider network="mainnet">
+        <AlephiumWalletDetector />
+      </AlephiumWalletProvider>
     </MainLayout>
   );
 };
