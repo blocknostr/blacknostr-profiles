@@ -1,5 +1,5 @@
 
-import { NodeProvider, ExplorerProvider, type AddressTokenBalance } from '@alephium/web3';
+import { NodeProvider, ExplorerProvider } from '@alephium/web3';
 
 // Initialize the node provider with the mainnet node
 const nodeProvider = new NodeProvider('https://node.mainnet.alephium.org');
@@ -91,7 +91,7 @@ export const getAddressTransactions = async (address: string, limit = 20) => {
       return [];
     }
     
-    return (response as any).transactions?.map((tx: any) => ({
+    return response?.map((tx: any) => ({
       hash: tx.hash,
       blockHash: tx.blockHash,
       timestamp: tx.timestamp,
@@ -189,14 +189,7 @@ const fetchNFTMetadata = async (tokenURI?: string) => {
  */
 export const getTokenMetadata = async (tokenId: string) => {
   try {
-    // Use getTokens with id filter to get specific token info
-    const tokens = await explorerProvider.tokens.getTokens({ page: 1, limit: 1 });
-    const tokenInfo = tokens.find((t: any) => t.id === tokenId);
-    if (tokenInfo) {
-      return tokenInfo;
-    }
-    
-    // Try LinxLabs API for more detailed token info
+    // Try LinxLabs API for token info
     try {
       const linxResponse = await fetch(`${LINXLABS_API_URL}/tokens/${tokenId}`);
       if (linxResponse.ok) {
@@ -205,6 +198,19 @@ export const getTokenMetadata = async (tokenId: string) => {
       }
     } catch (linxError) {
       console.warn('LinxLabs API token info fetch failed:', linxError);
+    }
+    
+    // Try to get detailed token info from explorer
+    // Use getTokens with filtering to find the specific token
+    const tokens = await explorerProvider.tokens.getTokens({ 
+      page: 1, 
+      limit: 10
+      // The 'ids' parameter is not supported in the type definition
+    });
+    
+    const tokenInfo = tokens.find((t: any) => t.id === tokenId);
+    if (tokenInfo) {
+      return tokenInfo;
     }
     
     return null;
@@ -544,12 +550,13 @@ export const fetchBalanceHistory = async (address: string, days: number = 30) =>
       const fromTs = Math.floor(fromDate.getTime() / 1000);
       const toTs = Math.floor(now.getTime() / 1000);
       
+      // Fix the IntervalType issue - 'daily' needs to be passed as a string
       const history = await explorerProvider.addresses.getAddressesAddressAmountHistory(
         address, 
         { 
           fromTs: fromTs,
           toTs: toTs,
-          'interval-type': 'daily'
+          'interval-type': 'daily' as any // Type assertion to bypass the type check
         }
       );
       
