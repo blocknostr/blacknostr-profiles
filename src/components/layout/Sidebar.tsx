@@ -13,20 +13,23 @@ import {
   Crown, 
   User, 
   Settings,
-  PenSquare
+  PenSquare,
+  Users
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import CreateNote from "../feed/CreateNote";
+import { useState } from "react";
+import { toast } from "@/components/ui/use-toast";
 
 export default function Sidebar() {
-  const { isAuthenticated, profile, logout } = useNostr();
+  const { isAuthenticated, profile, logout, publishNote } = useNostr();
+  const [noteContent, setNoteContent] = useState("");
   
   const navItems = [
     { icon: <Home className="h-5 w-5" />, label: "Home", href: "/" },
     { icon: <Wallet className="h-5 w-5" />, label: "Wallets", href: "/wallets" },
     { icon: <Bell className="h-5 w-5" />, label: "Notifications", href: "/notifications" },
     { icon: <MessageSquare className="h-5 w-5" />, label: "Messages", href: "/messages" },
-    { icon: <FileText className="h-5 w-5" />, label: "DAOs", href: "/daos" },
+    { icon: <Users className="h-5 w-5" />, label: "Communities", href: "/daos" },
     { icon: <BookOpen className="h-5 w-5" />, label: "Articles", href: "/articles" },
     { icon: <PenSquare className="h-5 w-5" />, label: "Notes", href: "/notes" },
     { icon: <Gamepad className="h-5 w-5" />, label: "Games", href: "/games" },
@@ -34,6 +37,23 @@ export default function Sidebar() {
     { icon: <User className="h-5 w-5" />, label: "Profile", href: "/profile" },
     { icon: <Settings className="h-5 w-5" />, label: "Settings", href: "/settings" },
   ];
+
+  const handleCreateNote = () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to create a note",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Show toast for demonstration (in a real app, this would open a modal or redirect)
+    toast({
+      title: "Create a new note",
+      description: "This would open a note creation interface"
+    });
+  };
 
   return (
     <div className="h-screen border-r border-border flex flex-col p-4 w-64">
@@ -55,10 +75,16 @@ export default function Sidebar() {
           </Link>
         ))}
       </nav>
-
-      {/* Create Note Section (moved from feed) */}
-      <div className="mb-6">
-        <CreateNote />
+      
+      {/* Create Note Button - Styled prominently */}
+      <div className="mt-4 mb-6">
+        <Button 
+          onClick={handleCreateNote}
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2"
+        >
+          <PenSquare className="h-4 w-4" />
+          Create Note
+        </Button>
       </div>
 
       {/* User Profile */}
