@@ -5,7 +5,7 @@ import RightSidebar from "./RightSidebar";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import { 
-  SidebarProvider, 
+  SidebarProvider,
   Sidebar as ShadcnSidebar,
   SidebarContent
 } from "@/components/ui/sidebar";
