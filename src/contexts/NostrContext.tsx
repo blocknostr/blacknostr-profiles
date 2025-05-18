@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SimplePool, Event } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
@@ -195,8 +194,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             kinds: [0],
             authors: [pubkey],
           }
-        ],
-        { timeout: 5000 }
+        ]
       );
 
       if (events.length > 0) {
@@ -234,8 +232,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Fetch note events
       const events = await pool.list(
         relays.filter(r => r.read).map(r => r.url),
-        [filter],
-        { timeout: 5000 }
+        [filter]
       );
 
       // Sort by timestamp (newest first)
