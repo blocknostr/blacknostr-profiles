@@ -2,7 +2,6 @@
 import { Button } from "@/components/ui/button";
 import { useNostr } from "@/contexts/NostrContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Home, 
   Wallet, 
@@ -57,6 +56,21 @@ export default function Sidebar() {
     });
   };
 
+  const handleConnectWallet = () => {
+    if (isAuthenticated) {
+      logout();
+      toast({
+        title: "Wallet disconnected",
+        description: "You have successfully disconnected your wallet"
+      });
+    } else {
+      toast({
+        title: "Connect Wallet",
+        description: "This would open a wallet connection interface"
+      });
+    }
+  };
+
   return (
     <div className="h-screen w-80 p-4 border-r border-border dark:bg-nostr-dark dark:border-white/10 fixed overflow-y-auto">
       {/* Logo and Theme Toggle */}
@@ -65,24 +79,19 @@ export default function Sidebar() {
         <ThemeToggle />
       </div>
 
-      {/* Navigation */}
-      <Card className="mb-6 dark:bg-nostr-cardBg dark:border-white/10">
-        <CardHeader className="pb-3">
-          <CardTitle>Navigation</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.label}
-              to={item.href}
-              className="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
-            >
-              {item.icon}
-              <span className="ml-3">{item.label}</span>
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
+      {/* Navigation Links - without the card container */}
+      <div className="space-y-2 mb-6">
+        {navItems.map((item) => (
+          <Link
+            key={item.label}
+            to={item.href}
+            className="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
+          >
+            {item.icon}
+            <span className="ml-3">{item.label}</span>
+          </Link>
+        ))}
+      </div>
       
       {/* Create Note Button - Styled prominently */}
       <div className="mt-4 mb-6">
@@ -95,34 +104,42 @@ export default function Sidebar() {
         </Button>
       </div>
 
-      {/* User Profile */}
-      {isAuthenticated && profile && (
-        <Card className="dark:bg-nostr-cardBg dark:border-white/10">
-          <CardHeader className="pb-3">
-            <CardTitle>Profile</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-3 mb-4">
+      {/* User Profile moved to the bottom */}
+      <div className="absolute bottom-4 left-0 right-0 px-4">
+        {isAuthenticated && profile ? (
+          <div className="flex items-center justify-between space-x-3 mt-auto">
+            <div className="flex items-center space-x-3">
               <Avatar>
                 <AvatarImage src={profile.picture} alt={profile.displayName || "User"} />
                 <AvatarFallback>{profile.displayName?.charAt(0) || "U"}</AvatarFallback>
               </Avatar>
               <div className="overflow-hidden">
                 <p className="text-sm font-medium truncate">{profile.displayName || "Anonymous"}</p>
-                <p className="text-xs text-muted-foreground truncate dark:text-nostr-muted">{profile.npub || ""}</p>
+                <p className="text-xs text-muted-foreground truncate dark:text-nostr-muted">{profile.npub?.slice(0, 10)}...</p>
               </div>
             </div>
             
             <Button 
               variant="outline" 
-              className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5" 
-              onClick={logout}
+              size="sm"
+              className="dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5" 
+              onClick={handleConnectWallet}
             >
-              Logout
+              <Wallet className="h-4 w-4 mr-1" />
+              {isAuthenticated ? "Disconnect" : "Connect"}
             </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        ) : (
+          <Button 
+            variant="outline" 
+            className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5" 
+            onClick={handleConnectWallet}
+          >
+            <Wallet className="h-4 w-4 mr-2" />
+            Connect Wallet
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
