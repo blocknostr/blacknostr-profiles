@@ -106,39 +106,45 @@ export default function Sidebar() {
 
       {/* User Profile moved to the bottom */}
       <div className="absolute bottom-4 left-0 right-0 px-4">
-        {isAuthenticated && profile ? (
-          <div className="flex items-center justify-between space-x-3 mt-auto">
-            <div className="flex items-center space-x-3">
-              <Avatar>
-                <AvatarImage src={profile.picture} alt={profile.displayName || "User"} />
-                <AvatarFallback>{profile.displayName?.charAt(0) || "U"}</AvatarFallback>
-              </Avatar>
-              <div className="overflow-hidden">
-                <p className="text-base font-medium truncate">{profile.displayName || "Anonymous"}</p>
-                <p className="text-sm text-muted-foreground truncate dark:text-nostr-muted">{profile.npub?.slice(0, 10)}...</p>
+        <div className="flex flex-col space-y-3">
+          {isAuthenticated && profile ? (
+            <>
+              <div className="flex items-center space-x-3">
+                <Avatar>
+                  <AvatarImage src={profile.picture} alt={profile.displayName || "User"} />
+                  <AvatarFallback>{profile.displayName?.charAt(0) || "U"}</AvatarFallback>
+                </Avatar>
+                <div className="overflow-hidden">
+                  <p className="text-base font-medium truncate">{profile.displayName || "Anonymous"}</p>
+                  <p className="text-sm text-muted-foreground truncate dark:text-nostr-muted">{profile.npub?.slice(0, 10)}...</p>
+                </div>
               </div>
-            </div>
-            
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base" 
+                onClick={handleConnectWallet}
+              >
+                <Wallet className="h-5 w-5 mr-2" />
+                {isAuthenticated ? 
+                  <div className="flex flex-col items-start">
+                    <span className="text-xs">Connected:</span>
+                    <span className="truncate text-sm max-w-[180px]">{profile.npub?.slice(0, 12)}...</span>
+                  </div> : "Connect Wallet"}
+              </Button>
+            </>
+          ) : (
             <Button 
               variant="outline" 
-              size="sm"
-              className="dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base" 
+              className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base" 
               onClick={handleConnectWallet}
             >
-              <Wallet className="h-4 w-4 mr-1" />
-              {isAuthenticated ? "Disconnect" : "Connect"}
+              <Wallet className="h-5 w-5 mr-2" />
+              Connect Wallet
             </Button>
-          </div>
-        ) : (
-          <Button 
-            variant="outline" 
-            className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base" 
-            onClick={handleConnectWallet}
-          >
-            <Wallet className="h-5 w-5 mr-2" />
-            Connect Wallet
-          </Button>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
