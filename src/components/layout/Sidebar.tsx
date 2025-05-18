@@ -75,7 +75,7 @@ export default function Sidebar() {
     <div className="h-screen w-80 p-4 border-r border-border dark:bg-nostr-dark dark:border-white/10 fixed overflow-y-auto">
       {/* Logo and Theme Toggle */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
+        <h1 className="text-3xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
         <ThemeToggle />
       </div>
 
@@ -85,7 +85,7 @@ export default function Sidebar() {
           <Link
             key={item.label}
             to={item.href}
-            className="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
+            className="flex items-center px-3 py-2 rounded-md text-base font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
           >
             {item.icon}
             <span className="ml-3">{item.label}</span>
@@ -97,9 +97,9 @@ export default function Sidebar() {
       <div className="mt-4 mb-6">
         <Button 
           onClick={handleCreateNote}
-          className="w-full bg-nostr-blue hover:bg-nostr-blue/90 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2"
+          className="w-full bg-nostr-blue hover:bg-nostr-blue/90 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2 text-base"
         >
-          <PenSquare className="h-4 w-4" />
+          <PenSquare className="h-5 w-5" />
           Create Note
         </Button>
       </div>
@@ -114,15 +114,15 @@ export default function Sidebar() {
                 <AvatarFallback>{profile.displayName?.charAt(0) || "U"}</AvatarFallback>
               </Avatar>
               <div className="overflow-hidden">
-                <p className="text-sm font-medium truncate">{profile.displayName || "Anonymous"}</p>
-                <p className="text-xs text-muted-foreground truncate dark:text-nostr-muted">{profile.npub?.slice(0, 10)}...</p>
+                <p className="text-base font-medium truncate">{profile.displayName || "Anonymous"}</p>
+                <p className="text-sm text-muted-foreground truncate dark:text-nostr-muted">{profile.npub?.slice(0, 10)}...</p>
               </div>
             </div>
             
             <Button 
               variant="outline" 
               size="sm"
-              className="dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5" 
+              className="dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base" 
               onClick={handleConnectWallet}
             >
               <Wallet className="h-4 w-4 mr-1" />
@@ -132,10 +132,10 @@ export default function Sidebar() {
         ) : (
           <Button 
             variant="outline" 
-            className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5" 
+            className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base" 
             onClick={handleConnectWallet}
           >
-            <Wallet className="h-4 w-4 mr-2" />
+            <Wallet className="h-5 w-5 mr-2" />
             Connect Wallet
           </Button>
         )}
