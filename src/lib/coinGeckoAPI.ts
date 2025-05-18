@@ -1,5 +1,7 @@
 
 // CoinGecko API utility functions
+import { web3, NodeProvider } from '@alephium/web3';
+
 interface CoinPrice {
   id: string;
   symbol: string;
@@ -39,23 +41,50 @@ export async function fetchCoinPrice(coinId: string): Promise<CoinPrice | null> 
 
 export async function fetchTokenBalance(ecosystem: string, address: string): Promise<any> {
   // In a real application, this would connect to different blockchain APIs based on the ecosystem
-  // For now, this is a placeholder
   
   console.log(`Fetching balance for ${address} on ${ecosystem}`);
+  
+  if (ecosystem === 'alephium') {
+    try {
+      const nodeProvider = web3.getCurrentNodeProvider();
+      if (nodeProvider) {
+        const balance = await nodeProvider.addresses.getAddressesAddressBalance(address);
+        return balance;
+      }
+    } catch (error) {
+      console.error('Error fetching Alephium balance:', error);
+    }
+  }
+  
   return { balance: 0 };
 }
 
 export async function fetchAlephiumData() {
-  // This would integrate with the Alephium SDK in a real application
-  // For now, this is a placeholder for future implementation
+  const mainnetNodeUrl = 'https://node.mainnet.alephium.org';
   
   try {
-    // Using the documentation from https://docs.alephium.org/sdk/getting-started/
-    // Actual implementation would require the Alephium SDK
+    // Initialize the node provider if not already initialized
+    if (!web3.getCurrentNodeProvider()) {
+      const nodeProvider = new NodeProvider(mainnetNodeUrl);
+      web3.setCurrentNodeProvider(nodeProvider);
+    }
+    
+    // Get current info about the blockchain
+    const nodeProvider = web3.getCurrentNodeProvider();
+    if (!nodeProvider) {
+      throw new Error("Node provider not initialized");
+    }
+    
+    const selfClique = await nodeProvider.infos.getSelfClique();
+    const blockflowChainInfo = await nodeProvider.blockflow.getBlockflowChainInfo();
     
     return {
       success: true,
-      message: "This would connect to the Alephium blockchain using the SDK"
+      message: "Successfully connected to Alephium blockchain",
+      data: {
+        selfClique,
+        blockflowChainInfo
+      }
     };
   } catch (error) {
     console.error('Error connecting to Alephium:', error);
