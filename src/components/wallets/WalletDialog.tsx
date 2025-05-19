@@ -1,8 +1,7 @@
-
 import { useState, useEffect, ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, Wallet, LocalStorage } from 'lucide-react';
+import { Plus, Trash2, Wallet, Database } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
@@ -155,7 +154,7 @@ const WalletDialog = ({ ecosystem, children }: WalletDialogProps) => {
       <DialogContent className="dark:bg-nostr-cardBg dark:border-white/20 sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center">
-            <LocalStorage className="h-5 w-5 mr-2 text-nostr-blue" />
+            <Database className="h-5 w-5 mr-2 text-nostr-blue" />
             Manage Wallets
           </DialogTitle>
           <DialogDescription>

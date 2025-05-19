@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Wallet, FilePlus, Trash, Circle, TrendingUp, DatabaseBackup, LocalStorage, FileText } from "lucide-react";
+import { Wallet, FilePlus, Trash, Circle, TrendingUp, DatabaseBackup, Database, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useNostr } from "@/contexts/NostrContext";
 import { toast } from "@/components/ui/use-toast";
@@ -71,18 +70,21 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
           try {
             // Get real balance data for Alephium
             const balanceData = await alephiumAPI.getAddressBalance(wallet.address);
-            const balanceInALPH = parseFloat(balanceData.balanceHint.split(' ')[0]);
+            // Convert balance from smallest unit (nanoALPH) to ALPH
+            const balanceInALPH = balanceData.balance / 10**18;
             
             // Try to get token data
             let tokens: TokenData[] = [];
             try {
-              const tokenBalances = balanceData.tokenBalances || [];
-              if (tokenBalances.length > 0) {
-                for (const tokenBalance of tokenBalances) {
+              // Get all tokens associated with this address
+              const tokensData = await alephiumAPI.getAddressTokens(wallet.address);
+              
+              if (tokensData && tokensData.length > 0) {
+                for (const tokenData of tokensData) {
                   try {
                     // Try to fetch token metadata
-                    const tokenId = tokenBalance.id;
-                    const tokenAmount = parseInt(tokenBalance.amount);
+                    const tokenId = tokenData.id;
+                    const tokenAmount = parseInt(tokenData.amount);
                     
                     // Fetch token details if possible
                     const tokenInfo = await alephiumAPI.getTokenInfo(tokenId);
