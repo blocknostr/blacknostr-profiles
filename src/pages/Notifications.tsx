@@ -148,9 +148,9 @@ const Notifications = () => {
           }
         });
         
-        // Fix: Update the type predicate to properly handle the Notification type
+        // Fix: The proper type predicate for our case
         const processedNotifications = (await Promise.all(notificationPromises))
-          .filter((n): n is Notification => n !== null)
+          .filter((n): n is NonNullable<Awaited<ReturnType<typeof notificationPromises[0]>>> => n !== null)
           .sort((a, b) => b.created_at - a.created_at);
         
         setNotifications(processedNotifications);
