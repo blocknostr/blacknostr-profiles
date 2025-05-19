@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { SimplePool, Event, getEventHash, signEvent, Sub } from 'nostr-tools';
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
 import {
   DEFAULT_RELAYS,
@@ -32,9 +33,8 @@ interface NostrContextType {
   createAccount: () => void;
   fetchProfile: (pubkey: string) => Promise<NostrProfile | null>;
   fetchNotes: (pubkey?: string) => Promise<NostrNote[]>;
-  fetchSingleNote: (id: string) => Promise<NostrNote | null>;
   updateProfile: (updatedProfile: NostrProfile) => Promise<boolean>;
-  publishNote: (content: string, tags?: string[][]) => Promise<string | null>;
+  publishNote: (content: string) => Promise<boolean>;
   followUser: (pubkey: string) => Promise<boolean>;
   unfollowUser: (pubkey: string) => Promise<boolean>;
   likeNote: (noteId: string) => Promise<boolean>;
@@ -43,19 +43,6 @@ interface NostrContextType {
   removeRelay: (url: string) => void;
   updateRelay: (url: string, read: boolean, write: boolean) => void;
   saveRelaysToStorage: () => void;
-  subscribeToNotes: (
-    pubkey?: string, 
-    onNotesReceived?: (notes: NostrNote[]) => void,
-    limit?: number,
-    since?: number
-  ) => string;
-  unsubscribeFromNotes: (subscriptionId: string) => void;
-}
-
-// Interface for tracking subscriptions
-interface SubscriptionInfo {
-  sub: Sub;
-  filter: any;
 }
 
 const NostrContext = createContext<NostrContextType | null>(null);
@@ -78,9 +65,6 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [notes, setNotes] = useState<NostrNote[]>([]);
   const [relays, setRelays] = useState<NostrRelayConfig[]>(DEFAULT_RELAYS);
   const [pool, setPool] = useState<SimplePool | null>(null);
-  
-  // Map to track active subscriptions
-  const [activeSubscriptions, setActiveSubscriptions] = useState<Map<string, SubscriptionInfo>>(new Map());
 
   // Initialize NOSTR connection
   useEffect(() => {
@@ -111,10 +95,9 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setNpub(userProfile.npub || null);
           }
 
-          // Set up a streaming subscription for user's notes
-          subscribeToNotes(savedPublicKey, (receivedNotes) => {
-            setNotes(receivedNotes);
-          });
+          // Fetch user's notes
+          const userNotes = await fetchNotes(savedPublicKey);
+          setNotes(userNotes);
         }
       } catch (error) {
         console.error('Error initializing NOSTR:', error);
@@ -130,23 +113,13 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     initNostr();
 
-    // Clean up all subscriptions on unmount
+    // Clean up
     return () => {
-      if (pool) {
-        // Close all relay connections
-        pool.close(relays.map(relay => relay.url));
-        
-        // Make sure to unsubscribe from all subscriptions
-        activeSubscriptions.forEach((subInfo) => {
-          if (subInfo.sub) {
-            subInfo.sub.unsub();
-          }
-        });
-      }
+      if (pool) pool.close(relays.map(relay => relay.url));
     };
   }, []);
 
-  const login = useCallback((pubkey?: string) => {
+  const login = (pubkey?: string) => {
     try {
       // If pubkey is provided, use extension login
       if (pubkey) {
@@ -162,16 +135,15 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           description: 'Successfully connected to your NOSTR extension',
         });
 
-        // Fetch profile and set up streaming subscription for notes
+        // Fetch profile and notes
         fetchProfile(pubkey).then(userProfile => {
           if (userProfile) {
             setProfile(userProfile);
           }
         });
 
-        // Set up subscription for user's notes
-        subscribeToNotes(pubkey, (receivedNotes) => {
-          setNotes(receivedNotes);
+        fetchNotes(pubkey).then(userNotes => {
+          setNotes(userNotes);
         });
         
         return;
@@ -198,7 +170,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         description: 'Welcome back to NOSTR',
       });
 
-      // Fetch profile and set up streaming subscription for notes
+      // Fetch profile and notes
       fetchProfile(savedPublicKey).then(userProfile => {
         if (userProfile) {
           setProfile(userProfile);
@@ -206,9 +178,8 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       });
 
-      // Set up subscription for user's notes
-      subscribeToNotes(savedPublicKey, (receivedNotes) => {
-        setNotes(receivedNotes);
+      fetchNotes(savedPublicKey).then(userNotes => {
+        setNotes(userNotes);
       });
     } catch (error) {
       console.error('Error logging in:', error);
@@ -218,7 +189,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         variant: 'destructive',
       });
     }
-  }, []);
+  };
 
   const loginWithPrivateKey = (inputPrivateKey: string) => {
     try {
@@ -327,7 +298,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return {
         pubkey: pubkey,
-        npub: hexToNpub(pubkey),
+        npub: null,
       };
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -364,138 +335,6 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (error) {
       console.error('Error fetching notes:', error);
       return [];
-    }
-  };
-
-  // Subscribe to notes with real-time updates
-  const subscribeToNotes = useCallback((
-    pubkey?: string, 
-    onNotesReceived?: (notes: NostrNote[]) => void,
-    limit: number = 20,
-    since?: number
-  ): string => {
-    if (!pool) return "";
-
-    // Create a unique subscription ID
-    const subscriptionId = `sub_${Math.random().toString(36).substring(2, 15)}`;
-
-    // Define filter based on whether we want a specific user's notes or global feed
-    const filter: any = pubkey ? 
-      {
-        kinds: [1], // Text notes only
-        authors: [pubkey],
-        limit: limit,
-      } : 
-      {
-        kinds: [1], // Text notes only
-        limit: limit,
-      };
-
-    // Optional: add since parameter for pagination
-    if (since) {
-      filter.since = since;
-    }
-
-    // Create event buffer to collect events before processing
-    let eventBuffer: Event[] = [];
-    let processTimer: NodeJS.Timeout | null = null;
-    
-    // Function to process buffered events
-    const processEvents = () => {
-      if (eventBuffer.length === 0) return;
-      
-      // Convert events to notes
-      const newNotes = eventBuffer
-        .map(event => parseNote(event))
-        .sort((a, b) => b.created_at - a.created_at);
-      
-      // Clear buffer
-      eventBuffer = [];
-      
-      // Call the callback if provided
-      if (onNotesReceived) {
-        onNotesReceived(newNotes);
-      }
-    };
-
-    try {
-      // Subscribe to relays
-      const sub = pool.sub(
-        relays.filter(r => r.read).map(r => r.url),
-        [filter]
-      );
-
-      // Handle incoming events
-      sub.on('event', (event: Event) => {
-        // Buffer the event
-        eventBuffer.push(event);
-
-        // Process events after a small delay to batch them
-        if (processTimer) {
-          clearTimeout(processTimer);
-        }
-        
-        processTimer = setTimeout(processEvents, 200);
-      });
-
-      // Handle subscription end (relay provided all historical events up to now)
-      sub.on('eose', () => {
-        // Process any remaining events
-        processEvents();
-      });
-
-      // Store the subscription
-      setActiveSubscriptions(prev => {
-        const newMap = new Map(prev);
-        newMap.set(subscriptionId, { sub, filter });
-        return newMap;
-      });
-
-      return subscriptionId;
-    } catch (error) {
-      console.error('Error subscribing to notes:', error);
-      return "";
-    }
-  }, [pool, relays]);
-
-  // Unsubscribe from a specific subscription
-  const unsubscribeFromNotes = useCallback((subscriptionId: string): void => {
-    setActiveSubscriptions(prev => {
-      const newMap = new Map(prev);
-      const subscription = newMap.get(subscriptionId);
-      
-      if (subscription) {
-        subscription.sub.unsub();
-        newMap.delete(subscriptionId);
-      }
-      
-      return newMap;
-    });
-  }, []);
-
-  const fetchSingleNote = async (id: string): Promise<NostrNote | null> => {
-    if (!pool) return null;
-
-    try {
-      // Fetch a single note by ID (compliant with NIP-01)
-      const events = await pool.list(
-        relays.filter(r => r.read).map(r => r.url),
-        [
-          {
-            kinds: [1], // Text note
-            ids: [id],
-          }
-        ]
-      );
-
-      if (events.length > 0) {
-        return parseNote(events[0]);
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Error fetching note:', error);
-      return null;
     }
   };
 
@@ -609,110 +448,18 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const publishNote = async (content: string, tags: string[][] = []): Promise<string | null> => {
-    if (!pool) {
-      toast({
-        title: "Connection error",
-        description: "Cannot connect to NOSTR network",
-        variant: "destructive"
-      });
-      return null;
-    }
-    
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication required",
-        description: "You must be logged in to publish a note",
-        variant: "destructive"
-      });
-      return null;
-    }
-    
-    if (!publicKey) {
-      toast({
-        title: "Missing public key",
-        description: "Your public key is not available",
-        variant: "destructive"
-      });
-      return null;
-    }
+  const publishNote = async (content: string): Promise<boolean> => {
+    if (!pool || !privateKey || !publicKey) return false;
 
-    try {
-      // Create note event (kind: 1) according to NIP-01
-      let event: Event = {
-        kind: 1, // Text note
-        pubkey: publicKey,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: tags, // Use provided tags
-        content: content,
-        id: '', // Will be set below
-        sig: '', // Will be set below
-      };
+    // Implement this with nostr-tools
+    // You'll need to create a signed event and publish it
+    // This is a placeholder for now
+    toast({
+      title: 'Note publishing not implemented yet',
+      description: 'Coming soon!',
+    });
 
-      // Calculate id from event data
-      event.id = getEventHash(event);
-      
-      // If using extension, sign with it
-      if (window.nostr) {
-        try {
-          const signedEvent = await window.nostr.signEvent(event);
-          
-          // Publish to relays
-          await Promise.all(
-            relays
-              .filter(relay => relay.write)
-              .map(relay => pool.publish([relay.url], signedEvent))
-          );
-          
-          // Add this note to the local state as well
-          const newNote = parseNote(signedEvent);
-          setNotes(prevNotes => [newNote, ...prevNotes]);
-          
-          // Return the note ID
-          return signedEvent.id;
-        } catch (err) {
-          console.error("Extension signing error:", err);
-          toast({
-            title: "Extension signing failed",
-            description: "Please check your NOSTR browser extension",
-            variant: "destructive"
-          });
-          return null;
-        }
-      } else if (privateKey) {
-        // Sign with local private key
-        event.sig = signEvent(event, privateKey);
-        
-        // Publish to relays
-        await Promise.all(
-          relays
-            .filter(relay => relay.write)
-            .map(relay => pool.publish([relay.url], event))
-        );
-        
-        // Add this note to the local state as well
-        const newNote = parseNote(event);
-        setNotes(prevNotes => [newNote, ...prevNotes]);
-        
-        // Return the note ID
-        return event.id;
-      } else {
-        toast({
-          title: "Signing error",
-          description: "No private key or extension available for signing",
-          variant: "destructive"
-        });
-        return null;
-      }
-    } catch (error) {
-      console.error('Error publishing note:', error);
-      toast({
-        title: "Error publishing note",
-        description: "There was an error publishing your note",
-        variant: "destructive"
-      });
-      return null;
-    }
+    return false;
   };
 
   const followUser = async (pubkey: string): Promise<boolean> => {
@@ -850,7 +597,6 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     createAccount,
     fetchProfile,
     fetchNotes,
-    fetchSingleNote,
     updateProfile,
     publishNote,
     followUser,
@@ -861,8 +607,6 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     removeRelay,
     updateRelay,
     saveRelaysToStorage,
-    subscribeToNotes,
-    unsubscribeFromNotes,
   };
 
   return (
