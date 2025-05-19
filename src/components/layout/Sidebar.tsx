@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { useNostr } from "@/contexts/NostrContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
-  Home, 
   Wallet, 
   Bell, 
   MessageSquare, 
@@ -16,7 +15,7 @@ import {
   PenSquare,
   Users
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -24,15 +23,15 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 export default function Sidebar() {
   const { isAuthenticated, profile, logout, publishNote } = useNostr();
   const [noteContent, setNoteContent] = useState("");
+  const location = useLocation();
   
   const navItems = [
-    { icon: <Home className="h-5 w-5" />, label: "Home", href: "/" },
+    { icon: <PenSquare className="h-5 w-5" />, label: "Notes", href: "/" },
     { icon: <Wallet className="h-5 w-5" />, label: "Wallets", href: "/wallets" },
     { icon: <Bell className="h-5 w-5" />, label: "Notifications", href: "/notifications" },
     { icon: <MessageSquare className="h-5 w-5" />, label: "Messages", href: "/messages" },
     { icon: <Users className="h-5 w-5" />, label: "Communities", href: "/daos" },
     { icon: <BookOpen className="h-5 w-5" />, label: "Articles", href: "/articles" },
-    { icon: <PenSquare className="h-5 w-5" />, label: "Notes", href: "/notes" },
     { icon: <Gamepad className="h-5 w-5" />, label: "Games", href: "/games" },
     { icon: <Crown className="h-5 w-5" />, label: "Premium", href: "/premium" },
     { icon: <User className="h-5 w-5" />, label: "Profile", href: "/profile" },
@@ -71,6 +70,14 @@ export default function Sidebar() {
     }
   };
 
+  // Function to determine if a link is active (including the root path for Notes)
+  const isActive = (href: string) => {
+    if (href === "/" && (location.pathname === "/" || location.pathname === "/notes")) {
+      return true;
+    }
+    return location.pathname === href;
+  };
+
   return (
     <div className="h-screen w-80 p-4 border-r border-border dark:bg-nostr-dark dark:border-white/10 fixed overflow-y-auto">
       {/* Logo and Theme Toggle */}
@@ -85,7 +92,11 @@ export default function Sidebar() {
           <Link
             key={item.label}
             to={item.href}
-            className="flex items-center px-3 py-2 rounded-md text-base font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
+            className={`flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors ${
+              isActive(item.href) 
+                ? "bg-muted dark:bg-white/10 text-nostr-blue" 
+                : "hover:bg-muted dark:hover:bg-white/5"
+            }`}
           >
             {item.icon}
             <span className="ml-3">{item.label}</span>
