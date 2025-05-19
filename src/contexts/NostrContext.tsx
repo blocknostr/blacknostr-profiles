@@ -31,7 +31,7 @@ interface NostrContextType {
   logout: () => void;
   createAccount: () => void;
   fetchProfile: (pubkey: string) => Promise<NostrProfile | null>;
-  fetchNotes: (pubkey?: string, limit?: number, since?: number) => Promise<NostrNote[]>;
+  fetchNotes: (pubkey?: string) => Promise<NostrNote[]>;
   fetchSingleNote: (id: string) => Promise<NostrNote | null>;
   updateProfile: (updatedProfile: NostrProfile) => Promise<boolean>;
   publishNote: (content: string, tags?: string[][]) => Promise<string | null>;
@@ -65,7 +65,6 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [notes, setNotes] = useState<NostrNote[]>([]);
   const [relays, setRelays] = useState<NostrRelayConfig[]>(DEFAULT_RELAYS);
   const [pool, setPool] = useState<SimplePool | null>(null);
-  const [lastFetchTimestamp, setLastFetchTimestamp] = useState<number>(0);
 
   // Initialize NOSTR connection
   useEffect(() => {
@@ -307,61 +306,32 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const fetchNotes = async (pubkey?: string, limit: number = 50, since?: number): Promise<NostrNote[]> => {
+  const fetchNotes = async (pubkey?: string): Promise<NostrNote[]> => {
     if (!pool) return [];
 
     try {
-      const activeRelays = relays.filter(r => r.read).map(relay => relay.url);
-      if (activeRelays.length === 0) {
-        console.warn("No read-enabled relays available");
-        return [];
-      }
-
-      // Set default since value if not provided
-      const sinceTime = since || lastFetchTimestamp || Math.floor(Date.now() / 1000) - 86400; // 24 hours ago by default
-
       // Define filter based on whether we want a specific user's notes or global feed
-      // This follows NIP-01 filter specifications
       const filter = pubkey ? 
         {
-          kinds: [1], // Text notes only (NIP-01)
+          kinds: [1], // Text notes only
           authors: [pubkey],
-          since: sinceTime,
-          limit: limit,
+          limit: 20,
         } : 
         {
-          kinds: [1], // Text notes only (NIP-01)
-          since: sinceTime,
-          limit: limit,
+          kinds: [1], // Text notes only
+          limit: 50,
         };
 
-      // Fetch note events from multiple relays as specified in NIP-01
-      console.log("Fetching notes with filter:", filter);
-      console.log("From relays:", activeRelays);
-      
-      const events = await pool.list(activeRelays, [filter]);
-      
-      console.log(`Fetched ${events.length} notes`);
+      // Fetch note events
+      const events = await pool.list(
+        relays.filter(r => r.read).map(r => r.url),
+        [filter]
+      );
 
-      // Update last fetch timestamp to now for subsequent "since" queries
-      setLastFetchTimestamp(Math.floor(Date.now() / 1000));
-
-      // Sort by timestamp (newest first) and parse events
-      const fetchedNotes = events
+      // Sort by timestamp (newest first)
+      return events
         .sort((a, b) => b.created_at - a.created_at)
         .map(event => parseNote(event));
-
-      // Merge with existing notes, remove duplicates, and sort
-      const combinedNotes = [...fetchedNotes, ...notes]
-        .filter((note, index, self) => 
-          index === self.findIndex((n) => n.id === note.id)
-        )
-        .sort((a, b) => b.created_at - a.created_at);
-      
-      // Update state with new notes
-      setNotes(combinedNotes);
-      
-      return fetchedNotes;
     } catch (error) {
       console.error('Error fetching notes:', error);
       return [];
@@ -620,141 +590,22 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return false;
   };
 
-  // Implement NIP-25 compliant like functionality
   const likeNote = async (noteId: string): Promise<boolean> => {
-    if (!pool || !publicKey || !isAuthenticated) {
-      toast({
-        title: "Authentication required",
-        description: "You must be logged in to like notes",
-        variant: "destructive"
-      });
-      return false;
-    }
-
-    try {
-      // Find the note to get its pubkey and other details
-      const targetNote = notes.find(note => note.id === noteId);
-      if (!targetNote) {
-        console.error("Note not found:", noteId);
-        return false;
-      }
-
-      // Create reaction (like) event according to NIP-25
-      let event: Event = {
-        kind: 7, // Reaction event (NIP-25)
-        pubkey: publicKey,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [
-          ['e', noteId], // Reference to the note being liked
-          ['p', targetNote.pubkey], // Reference to the note author
-          ['k', '1'], // Reference to kind 1 (text note)
-          ['content', '+'] // '+' means like (NIP-25)
-        ],
-        content: '+', // '+' means like (NIP-25)
-        id: '', // Will be set below
-        sig: '', // Will be set below
-      };
-
-      // Calculate id from event data
-      event.id = getEventHash(event);
-      
-      // Sign and publish event
-      if (window.nostr) {
-        try {
-          const signedEvent = await window.nostr.signEvent(event);
-          await Promise.all(
-            relays
-              .filter(relay => relay.write)
-              .map(relay => pool.publish([relay.url], signedEvent))
-          );
-        } catch (err) {
-          console.error("Extension signing error:", err);
-          return false;
-        }
-      } else if (privateKey) {
-        event.sig = signEvent(event, privateKey);
-        await Promise.all(
-          relays
-            .filter(relay => relay.write)
-            .map(relay => pool.publish([relay.url], event))
-        );
-      } else {
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error liking note:', error);
-      return false;
-    }
+    // Implement this with nostr-tools
+    toast({
+      title: 'Like feature not implemented yet',
+      description: 'Coming soon!',
+    });
+    return false;
   };
 
-  // Implement NIP-18 compliant repost functionality
   const repostNote = async (noteId: string): Promise<boolean> => {
-    if (!pool || !publicKey || !isAuthenticated) {
-      toast({
-        title: "Authentication required",
-        description: "You must be logged in to repost notes",
-        variant: "destructive"
-      });
-      return false;
-    }
-
-    try {
-      // Find the note to repost
-      const targetNote = notes.find(note => note.id === noteId);
-      if (!targetNote) {
-        console.error("Note not found:", noteId);
-        return false;
-      }
-
-      // Create repost event according to NIP-18
-      let event: Event = {
-        kind: 6, // Repost event (NIP-18)
-        pubkey: publicKey,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [
-          ['e', noteId], // Reference to the note being reposted
-          ['p', targetNote.pubkey], // Reference to the note author
-          ['k', '1'], // Reference to kind 1 (text note)
-        ],
-        content: '', // Empty content for reposts
-        id: '', // Will be set below
-        sig: '', // Will be set below
-      };
-
-      // Calculate id from event data
-      event.id = getEventHash(event);
-      
-      // Sign and publish event
-      if (window.nostr) {
-        try {
-          const signedEvent = await window.nostr.signEvent(event);
-          await Promise.all(
-            relays
-              .filter(relay => relay.write)
-              .map(relay => pool.publish([relay.url], signedEvent))
-          );
-        } catch (err) {
-          console.error("Extension signing error:", err);
-          return false;
-        }
-      } else if (privateKey) {
-        event.sig = signEvent(event, privateKey);
-        await Promise.all(
-          relays
-            .filter(relay => relay.write)
-            .map(relay => pool.publish([relay.url], event))
-        );
-      } else {
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error reposting note:', error);
-      return false;
-    }
+    // Implement this with nostr-tools
+    toast({
+      title: 'Repost feature not implemented yet',
+      description: 'Coming soon!',
+    });
+    return false;
   };
 
   // Relay management functions
