@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Light as SyntaxHighlighter } from "react-syntax-highlighter";
 import { atomOneDark, atomOneLight } from "react-syntax-highlighter/dist/esm/styles/hljs";
 import { useTheme } from "@/contexts/ThemeContext";
+import { Badge } from "@/components/ui/badge";
 
 // Supported languages
 const LANGUAGES = [
