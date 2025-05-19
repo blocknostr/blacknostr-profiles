@@ -7,9 +7,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface NoteFeedProps {
   pubkey?: string;
+  sinceTime?: number; // NIP-16: Pagination based on timestamps
+  hashtag?: string;   // NIP-12: Support for hashtag filtering
 }
 
-export default function NoteFeed({ pubkey }: NoteFeedProps) {
+export default function NoteFeed({ pubkey, sinceTime, hashtag }: NoteFeedProps) {
   const { notes, fetchNotes, fetchProfile } = useNostr();
   const [isLoading, setIsLoading] = useState(true);
   const [authorProfiles, setAuthorProfiles] = useState<Record<string, NostrProfile>>({});
@@ -17,12 +19,13 @@ export default function NoteFeed({ pubkey }: NoteFeedProps) {
   useEffect(() => {
     const loadNotes = async () => {
       setIsLoading(true);
-      await fetchNotes(pubkey);
+      // NIP-01: Basic protocol filters, NIP-12: Hashtag support, NIP-16: Timestamp filtering
+      await fetchNotes(pubkey, sinceTime, hashtag);
       setIsLoading(false);
     };
 
     loadNotes();
-  }, [fetchNotes, pubkey]);
+  }, [fetchNotes, pubkey, sinceTime, hashtag]);
 
   useEffect(() => {
     // Fetch profiles for all unique authors
@@ -79,9 +82,12 @@ export default function NoteFeed({ pubkey }: NoteFeedProps) {
     );
   }
 
+  // NIP-01: Sort by timestamp (newest first)
+  const sortedNotes = [...notes].sort((a, b) => b.created_at - a.created_at);
+
   return (
     <div className="space-y-4">
-      {notes.map((note) => (
+      {sortedNotes.map((note) => (
         <NoteCard 
           key={note.id} 
           note={note} 

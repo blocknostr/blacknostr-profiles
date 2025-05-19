@@ -10,6 +10,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { Link, Calendar, MapPin, User, Edit, CheckCircle, Settings } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditProfileDialog from "@/components/profile/EditProfileDialog";
+import { nip19 } from "nostr-tools";
 
 const Profile = () => {
   const { isAuthenticated, profile, publicKey, logout } = useNostr();
@@ -37,6 +38,9 @@ const Profile = () => {
       </div>
     );
   }
+
+  // NIP-19: Convert hex to bech32 format for display if not already converted
+  const npub = profile?.npub || (publicKey ? nip19.npubEncode(publicKey) : null);
 
   return (
     <SimpleMainLayout>
@@ -99,6 +103,7 @@ const Profile = () => {
                 <div className="pt-2">
                   <div className="flex items-center gap-2">
                     <h1 className="text-xl font-bold">{profile?.displayName || "Anonymous"}</h1>
+                    {/* NIP-05 verification badge */}
                     {profile?.nip05 && (
                       <Badge variant="secondary" className="flex items-center gap-1">
                         <CheckCircle className="h-3 w-3" />
@@ -106,7 +111,8 @@ const Profile = () => {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">{profile?.npub || ""}</p>
+                  {/* NIP-19: Display bech32-encoded public key */}
+                  <p className="text-sm text-muted-foreground">{npub ? `${npub.substring(0, 8)}...${npub.substring(npub.length - 4)}` : ""}</p>
                 </div>
               </div>
               <Button onClick={() => setEditProfileOpen(true)}>
@@ -137,6 +143,24 @@ const Profile = () => {
                 <MapPin className="h-4 w-4 mr-1" />
                 <span>Earth</span>
               </div>
+              {/* NIP-06: Lightning Address (if available) */}
+              {profile?.lud16 && (
+                <div className="flex items-center">
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className="h-4 w-4 mr-1" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="M13 3L1 15l10 10L23 13 13 3z"/>
+                  </svg>
+                  <span>{profile.lud16}</span>
+                </div>
+              )}
             </div>
 
             {/* Stats */}
