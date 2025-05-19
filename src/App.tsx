@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NostrProvider } from "@/contexts/NostrContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 
+import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import Wallets from "./pages/Wallets";
@@ -32,7 +33,7 @@ const App = () => {
             <Sonner />
             <BrowserRouter>
               <Routes>
-                <Route path="/" element={<Notes />} />
+                <Route path="/" element={<Index />} />
                 <Route path="/wallets" element={<Wallets />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/messages" element={<Messages />} />
