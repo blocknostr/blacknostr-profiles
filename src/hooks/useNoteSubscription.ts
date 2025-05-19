@@ -147,12 +147,15 @@ export default function useNoteSubscription(
         // Now we know result is not null
         // Check if result is an object with hasMore property
         if (typeof result === 'object' && result !== null && 'hasMore' in result) {
-          setHasMore(Boolean(result.hasMore));
+          setHasMore(Boolean((result as SubscriptionResult).hasMore));
         }
         
         // Check if result is an object with subId property
         if (typeof result === 'object' && result !== null && 'subId' in result) {
-          subscriptionIdRef.current = String(result.subId);
+          subscriptionIdRef.current = String((result as SubscriptionResult).subId);
+        } else if (typeof result === 'string') {
+          // If result is a string, it's the subscription ID directly
+          subscriptionIdRef.current = result;
         }
         
         setPage(nextPage);
