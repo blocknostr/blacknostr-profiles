@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNostr } from '@/contexts/NostrContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -10,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
-import { Settings as SettingsIcon, Trash2, Wifi, Link, Moon, Sun } from 'lucide-react';
+import { Link as RouterLink } from "react-router-dom";
+import { Settings as SettingsIcon, Trash2, Wifi, Link, Moon, Sun, User } from 'lucide-react';
 import { DEFAULT_RELAYS } from '@/lib/nostr';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { z } from 'zod';
@@ -27,7 +29,7 @@ const formSchema = z.object({
 type RelayFormValues = z.infer<typeof formSchema>;
 
 export default function Settings() {
-  const { relays, addRelay, removeRelay, updateRelay, saveRelaysToStorage } = useNostr();
+  const { relays, addRelay, removeRelay, updateRelay, saveRelaysToStorage, logout } = useNostr();
   const { theme, setTheme } = useTheme();
   const [isAddingRelay, setIsAddingRelay] = useState(false);
 
@@ -66,9 +68,20 @@ export default function Settings() {
   return (
     <SimpleMainLayout>
       <div className="container max-w-4xl mx-auto py-8">
-        <h1 className="text-3xl font-bold mb-8 flex items-center">
-          <SettingsIcon className="mr-2" /> Settings
-        </h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold flex items-center">
+            <SettingsIcon className="mr-2" /> Settings
+          </h1>
+          <div className="space-x-2">
+            <Button variant="outline" asChild>
+              <RouterLink to="/profile">
+                <User className="h-4 w-4 mr-2" />
+                Profile
+              </RouterLink>
+            </Button>
+            <Button variant="outline" onClick={logout}>Logout</Button>
+          </div>
+        </div>
 
         {/* Theme Settings */}
         <Card className="mb-8">

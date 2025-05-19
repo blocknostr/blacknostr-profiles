@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import SimpleMainLayout from "@/components/layout/SimpleMainLayout";
@@ -5,12 +6,13 @@ import NoteFeed from "@/components/feed/NoteFeed";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Link, Calendar, MapPin, User, Edit, CheckCircle } from "lucide-react";
+import { Link as RouterLink } from "react-router-dom";
+import { Link, Calendar, MapPin, User, Edit, CheckCircle, Settings } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditProfileDialog from "@/components/profile/EditProfileDialog";
 
 const Profile = () => {
-  const { isAuthenticated, profile, publicKey } = useNostr();
+  const { isAuthenticated, profile, publicKey, logout } = useNostr();
   const [isLoading, setIsLoading] = useState(true);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
 
@@ -38,6 +40,19 @@ const Profile = () => {
 
   return (
     <SimpleMainLayout>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Profile</h1>
+        <div className="space-x-2">
+          <Button variant="outline" asChild>
+            <RouterLink to="/settings">
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </RouterLink>
+          </Button>
+          <Button variant="outline" onClick={logout}>Logout</Button>
+        </div>
+      </div>
+
       <div className="space-y-4">
         {isLoading ? (
           <div className="space-y-4">

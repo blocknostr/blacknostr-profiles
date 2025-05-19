@@ -1,7 +1,6 @@
 
 import React from "react";
 import { useNostr } from "@/contexts/NostrContext";
-import { SimpleSidebar } from "./SimpleSidebar";
 import { Navigate } from "react-router-dom";
 
 interface MainLayoutProps {
@@ -16,8 +15,7 @@ const SimpleMainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }
 
   return (
-    <div className="flex min-h-screen dark:bg-nostr-dark">
-      <SimpleSidebar />
+    <div className="min-h-screen dark:bg-nostr-dark">
       <main className="flex-1 p-6 overflow-auto">
         <div className="container max-w-4xl mx-auto">
           {children}
