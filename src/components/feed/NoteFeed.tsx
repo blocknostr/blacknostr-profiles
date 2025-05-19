@@ -159,16 +159,21 @@ export default function NoteFeed({ pubkey, followingFeed }: NoteFeedProps) {
           return;
         }
         
-        // Now we're sure result is not null, we can safely check its properties
-        if (typeof result === 'object') {
+        // At this point we know result is not null
+        // But TypeScript doesn't track this knowledge through the code flow
+        // So we need to assign it to a non-null variable to satisfy the type checker
+        const safeResult = result; // This creates a new variable that TypeScript knows is non-null
+        
+        // Now we can safely check its properties without null checks
+        if (typeof safeResult === 'object') {
           // Check for hasMore property
-          if ('hasMore' in result) {
-            setHasMore(result.hasMore);
+          if ('hasMore' in safeResult) {
+            setHasMore(safeResult.hasMore);
           }
           
           // Check for subId property
-          if ('subId' in result) {
-            subscriptionIdRef.current = result.subId;
+          if ('subId' in safeResult) {
+            subscriptionIdRef.current = safeResult.subId;
           }
         }
         
