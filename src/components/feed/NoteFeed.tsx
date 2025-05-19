@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import NoteCard from "./NoteCard";
@@ -159,20 +158,16 @@ export default function NoteFeed({ pubkey, followingFeed }: NoteFeedProps) {
           return;
         }
         
-        // At this point we know result is not null
-        // Use a type assertion to tell TypeScript this value is non-null
-        const safeResult = result as NonNullable<typeof result>;
-        
-        // Now we can safely check its properties without TypeScript complaining
-        if (typeof safeResult === 'object') {
+        // If result exists and is an object, extract its properties safely
+        if (result && typeof result === 'object') {
           // Check for hasMore property
-          if ('hasMore' in safeResult) {
-            setHasMore(safeResult.hasMore);
+          if ('hasMore' in result) {
+            setHasMore(result.hasMore);
           }
           
           // Check for subId property
-          if ('subId' in safeResult) {
-            subscriptionIdRef.current = safeResult.subId;
+          if ('subId' in result) {
+            subscriptionIdRef.current = result.subId;
           }
         }
         
