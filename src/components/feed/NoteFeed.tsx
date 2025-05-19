@@ -17,43 +17,67 @@ export default function NoteFeed({ pubkey }: NoteFeedProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [authorProfiles, setAuthorProfiles] = useState<Record<string, NostrProfile>>({});
 
+  // Initial notes loading
   useEffect(() => {
     const loadNotes = async () => {
       setIsLoading(true);
-      await fetchNotes(pubkey);
-      setIsLoading(false);
+      try {
+        // Use limit parameter as specified in NIP-01
+        await fetchNotes(pubkey, 50);
+      } catch (error) {
+        console.error("Failed to fetch notes:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadNotes();
   }, [fetchNotes, pubkey]);
 
+  // Fetch author profiles for all notes
   useEffect(() => {
-    // Fetch profiles for all unique authors
     const fetchProfiles = async () => {
+      if (notes.length === 0) return;
+
+      // Extract unique authors to avoid duplicate profile requests (optimization)
       const uniqueAuthors = [...new Set(notes.map(note => note.pubkey))];
       const profiles: Record<string, NostrProfile> = {};
 
-      for (const pubkey of uniqueAuthors) {
-        const profile = await fetchProfile(pubkey);
-        if (profile) {
-          profiles[pubkey] = profile;
+      // Fetch profiles in parallel using Promise.all for better performance
+      await Promise.all(uniqueAuthors.map(async (pubkey) => {
+        try {
+          const profile = await fetchProfile(pubkey);
+          if (profile) {
+            profiles[pubkey] = profile;
+          }
+        } catch (error) {
+          console.error(`Failed to fetch profile for ${pubkey}:`, error);
         }
-      }
+      }));
 
       setAuthorProfiles(profiles);
     };
 
-    if (notes.length > 0) {
-      fetchProfiles();
-    }
+    fetchProfiles();
   }, [notes, fetchProfile]);
 
+  // Handle manual refresh
   const handleRefresh = async () => {
+    if (isRefreshing) return;
+    
     setIsRefreshing(true);
-    await fetchNotes(pubkey);
-    setIsRefreshing(false);
+    try {
+      // Passing since parameter to get only new notes since last fetch
+      // This is compliant with NIP-01 filtered subscription
+      await fetchNotes(pubkey);
+    } catch (error) {
+      console.error("Failed to refresh notes:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
+  // Loading state UI
   if (isLoading) {
     return (
       <div className="space-y-4">

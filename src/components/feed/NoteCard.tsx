@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageSquare, Repeat, Share } from "lucide-react";
 import { NostrNote, NostrProfile, formatTimestamp } from "@/lib/nostr";
+import { toast } from "@/components/ui/use-toast";
 
 interface NoteCardProps {
   note: NostrNote;
@@ -31,19 +32,63 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
     return formatTimestamp(timestamp);
   };
 
+  // Process content to handle mentions and links according to NIP-08, NIP-10
+  const processContent = (content: string) => {
+    // For simplicity, we're just returning the raw content here
+    // In a full implementation, you would parse and format mentions, links, etc.
+    return content;
+  };
+
   const handleLike = async () => {
-    setIsLiked(!isLiked);
-    await likeNote(note.id);
+    try {
+      setIsLiked(!isLiked);
+      // NIP-25 compliant reaction (kind 7)
+      await likeNote(note.id);
+      if (!isLiked) {
+        toast({
+          title: "Note liked",
+          description: "Your reaction has been published",
+        });
+      }
+    } catch (error) {
+      console.error("Error liking note:", error);
+      setIsLiked(isLiked); // Revert state on failure
+      toast({
+        title: "Failed to like note",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleRepost = async () => {
-    setIsReposted(!isReposted);
-    await repostNote(note.id);
+    try {
+      setIsReposted(!isReposted);
+      // NIP-18 compliant repost (kind 6)
+      await repostNote(note.id);
+      if (!isReposted) {
+        toast({
+          title: "Note reposted",
+          description: "Your repost has been published",
+        });
+      }
+    } catch (error) {
+      console.error("Error reposting note:", error);
+      setIsReposted(isReposted); // Revert state on failure
+      toast({
+        title: "Failed to repost note",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    }
   };
 
   const displayName = authorProfile?.displayName || authorProfile?.name || "Anonymous";
   const username = authorProfile?.npub ? `${authorProfile.npub.substring(0, 8)}...` : "";
   const avatarUrl = authorProfile?.picture || "";
+
+  // Display note creation date
+  const timeAgo = formatRelativeTime(note.created_at);
 
   return (
     <Card className="mb-4 hover:bg-accent/5 transition-colors">
@@ -60,14 +105,14 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
                 <p className="text-xs text-muted-foreground">{username}</p>
               </div>
               <p className="text-xs text-muted-foreground">
-                {formatRelativeTime(note.created_at)}
+                {timeAgo}
               </p>
             </div>
           </div>
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-2">
-        <p className="whitespace-pre-wrap">{note.content}</p>
+        <p className="whitespace-pre-wrap">{processContent(note.content)}</p>
       </CardContent>
       <CardFooter className="p-2 pt-0 flex justify-between">
         <Button variant="ghost" size="sm">
