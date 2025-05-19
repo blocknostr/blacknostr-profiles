@@ -68,19 +68,12 @@ export const DEFAULT_RELAYS: NostrRelayConfig[] = [
   { url: 'wss://relay.nostr.bg', read: true, write: true },
 ];
 
-// Add new types and constants related to NIP-02
-export type NostrContact = {
-  pubkey: string;
-  relay?: string;
-  petname?: string;
-};
-
 // NOSTR event kinds
 export const NOSTR_KINDS = {
   METADATA: 0,
   TEXT_NOTE: 1,
   RECOMMEND_SERVER: 2,
-  CONTACTS: 3,  // NIP-02: Contacts event
+  CONTACTS: 3,
   ENCRYPTED_DIRECT_MESSAGE: 4,
   DELETE: 5,
   REACTION: 7,

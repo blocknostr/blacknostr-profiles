@@ -22,7 +22,7 @@ export default function useNoteSubscription(
   pubkey?: string,
   followingFeed?: boolean
 ): NoteSubscriptionResult {
-  const { subscribeToNotes, unsubscribeFromNotes, fetchFollowing } = useNostr();
+  const { subscribeToNotes, unsubscribeFromNotes } = useNostr();
   const [isLoading, setIsLoading] = useState(true);
   const [feedNotes, setFeedNotes] = useState<NostrNote[]>([]);
   const [page, setPage] = useState(1);
@@ -71,29 +71,9 @@ export default function useNoteSubscription(
         subscriptionIdRef.current = null;
       }
       
-      // Handle following feed if specified
-      let targetPubkey = pubkey;
-      if (followingFeed) {
-        // When requesting following feed, we need to fetch the user's following list
-        await fetchFollowing();
-        targetPubkey = undefined; // Will be handled by the context
-      }
-      
       // Subscribe to notes with a limit
-      const result = subscribeToNotes(targetPubkey, handleNewNotes, notesPerPage);
-      
-      // Handle the result which could be a string or an object
-      if (typeof result === 'string') {
-        subscriptionIdRef.current = result;
-        setHasMore(true); // Default to true when we can't determine
-      } else if (result !== null && typeof result === 'object') {
-        if ('subId' in result) {
-          subscriptionIdRef.current = result.subId;
-        }
-        if ('hasMore' in result) {
-          setHasMore(Boolean(result.hasMore));
-        }
-      }
+      const subId = subscribeToNotes(pubkey, handleNewNotes, notesPerPage);
+      subscriptionIdRef.current = subId;
       
       setIsLoading(false);
     };
@@ -107,7 +87,7 @@ export default function useNoteSubscription(
         subscriptionIdRef.current = null;
       }
     };
-  }, [subscribeToNotes, unsubscribeFromNotes, pubkey, handleNewNotes, fetchFollowing, followingFeed]);
+  }, [subscribeToNotes, unsubscribeFromNotes, pubkey, handleNewNotes]);
 
   // Set up intersection observer for infinite scrolling
   useEffect(() => {
@@ -164,16 +144,15 @@ export default function useNoteSubscription(
           return;
         }
         
+        // Now we know result is not null
         // Check if result is an object with hasMore property
-        if (typeof result === 'object' && result !== null) {
-          if ('hasMore' in result) {
-            setHasMore(Boolean(result.hasMore));
-          }
-          
-          // Check if result is an object with subId property
-          if ('subId' in result) {
-            subscriptionIdRef.current = result.subId;
-          }
+        if (typeof result === 'object' && result !== null && 'hasMore' in result) {
+          setHasMore(Boolean(result.hasMore));
+        }
+        
+        // Check if result is an object with subId property
+        if (typeof result === 'object' && result !== null && 'subId' in result) {
+          subscriptionIdRef.current = String(result.subId);
         }
         
         setPage(nextPage);
@@ -197,16 +176,10 @@ export default function useNoteSubscription(
     setIsLoading(true);
     
     // Start a new subscription
-    const result = subscribeToNotes(pubkey, handleNewNotes, notesPerPage);
-    
-    if (typeof result === 'string') {
-      subscriptionIdRef.current = result;
-    } else if (result !== null && typeof result === 'object' && 'subId' in result) {
-      subscriptionIdRef.current = result.subId;
-    }
+    const subId = subscribeToNotes(pubkey, handleNewNotes, notesPerPage);
+    subscriptionIdRef.current = subId;
     
     setIsLoading(false);
-    return Promise.resolve();
   };
 
   return {
