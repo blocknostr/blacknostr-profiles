@@ -4,9 +4,17 @@ import MainLayout from "@/components/layout/MainLayout";
 import { LoginForm } from "@/components/auth/LoginForm";
 import NoteFeed from "@/components/feed/NoteFeed";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { PlusCircle, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import CreateNote from "@/components/feed/CreateNote";
 
 const Index = () => {
-  const { isAuthenticated, isLoading } = useNostr();
+  const { isAuthenticated, isLoading, fetchNotes, publicKey } = useNostr();
+  const [isCreateNoteOpen, setIsCreateNoteOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("global");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   if (isLoading) {
     return (
@@ -31,12 +39,48 @@ const Index = () => {
     );
   }
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchNotes(activeTab === "following" ? publicKey : undefined);
+    setIsRefreshing(false);
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
+
   return (
     <MainLayout>
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold">Home</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Home</h1>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isRefreshing} 
+              className="flex items-center gap-1"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+            <Button 
+              onClick={() => setIsCreateNoteOpen(true)}
+              size="sm" 
+              className="flex items-center gap-1"
+            >
+              <PlusCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">New Note</span>
+            </Button>
+          </div>
+        </div>
         
-        <Tabs defaultValue="global" className="w-full">
+        <Tabs 
+          defaultValue="global" 
+          className="w-full" 
+          onValueChange={handleTabChange}
+        >
           <TabsList className="w-full dark:bg-nostr-cardBg">
             <TabsTrigger value="global" className="flex-1">Global</TabsTrigger>
             <TabsTrigger value="following" className="flex-1">Following</TabsTrigger>
@@ -45,13 +89,19 @@ const Index = () => {
             <NoteFeed />
           </TabsContent>
           <TabsContent value="following" className="mt-4">
-            <div className="text-center py-12 text-muted-foreground">
-              <p>Your following feed will appear here.</p>
-              <p>Follow some users to see their posts!</p>
-            </div>
+            <NoteFeed pubkey={publicKey || undefined} followingFeed={true} />
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={isCreateNoteOpen} onOpenChange={setIsCreateNoteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create new note</DialogTitle>
+          </DialogHeader>
+          <CreateNote onNoteCreated={() => setIsCreateNoteOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };
