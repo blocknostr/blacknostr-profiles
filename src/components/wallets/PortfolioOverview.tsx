@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Wallet, FilePlus, Trash, Circle, TrendingUp, DatabaseBackup, Database, FileText } from "lucide-react";
+import { Wallet, FilePlus, Trash, Circle, TrendingUp, DatabaseBackup, Database, FileText, Layers, Token, Pool } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useNostr } from "@/contexts/NostrContext";
 import { toast } from "@/components/ui/use-toast";
 import { Dialog } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import alephiumAPI from '@/lib/alephiumAPI';
 import * as tokenMetadataModule from "@/lib/tokenMetadata";
 
@@ -17,6 +18,8 @@ interface WalletData {
   address: string;
   balance?: number;
   tokens?: Array<{ symbol: string; balance: number; value: number }>;
+  nfts?: Array<{ id: string; name: string; collection: string; floorPrice: number }>;
+  pools?: Array<{ id: string; name: string; token1: string; token2: string; liquidity: number; apr: number }>;
   lastUpdated?: number;
 }
 
@@ -24,6 +27,22 @@ interface TokenData {
   symbol: string;
   balance: number;
   value: number;
+}
+
+interface NFTData {
+  id: string;
+  name: string;
+  collection: string;
+  floorPrice: number;
+}
+
+interface PoolData {
+  id: string;
+  name: string;
+  token1: string;
+  token2: string;
+  liquidity: number;
+  apr: number;
 }
 
 const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
@@ -34,11 +53,36 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
   const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false);
   const [walletToDelete, setWalletToDelete] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [priceChange24h, setPriceChange24h] = useState<number>(0);
+  
+  // Aggregate data across all wallets
+  const [aggregatedTokens, setAggregatedTokens] = useState<Record<string, TokenData>>({});
+  const [aggregatedNFTs, setAggregatedNFTs] = useState<NFTData[]>([]);
+  const [aggregatedPools, setAggregatedPools] = useState<PoolData[]>([]);
   
   // Load wallets from localStorage based on the selected ecosystem
   useEffect(() => {
     loadWallets();
+    // Fetch Alephium price data if we're on Alephium ecosystem
+    if (ecosystem === 'alephium') {
+      fetchAlephiumPriceData();
+    }
   }, [ecosystem]);
+
+  // Fetch price data for Alephium from a mock API (would be replaced with actual API)
+  const fetchAlephiumPriceData = async () => {
+    try {
+      // For demo purposes, using mock data
+      // In a real scenario, you'd fetch from CoinGecko or similar API
+      setCurrentPrice(0.82);
+      setPriceChange24h(3.5);
+    } catch (error) {
+      console.error("Error fetching price data:", error);
+      setCurrentPrice(0.82);  // fallback values
+      setPriceChange24h(2.3);
+    }
+  };
 
   const loadWallets = async () => {
     setLoading(true);
@@ -75,6 +119,9 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             
             // Try to get token data
             let tokens: TokenData[] = [];
+            let nfts: NFTData[] = [];
+            let pools: PoolData[] = [];
+            
             try {
               // Get all tokens associated with this address
               const tokensData = await alephiumAPI.getAddressTokens(wallet.address);
@@ -114,16 +161,25 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                   }
                 }
               }
+              
+              // Generate some mock NFT and Pool data for now
+              nfts = generateNFTsFromAddress(wallet.address);
+              pools = generatePoolsFromAddress(wallet.address);
+              
             } catch (tokenErr) {
               console.error("Could not fetch token data:", tokenErr);
               // Use existing tokens or generate some
               tokens = wallet.tokens || generateTokensFromAddress(wallet.address, ecosystem);
+              nfts = wallet.nfts || generateNFTsFromAddress(wallet.address);
+              pools = wallet.pools || generatePoolsFromAddress(wallet.address);
             }
             
             const updatedWallet = {
               ...wallet,
               balance: balanceInALPH,
               tokens,
+              nfts,
+              pools,
               lastUpdated: now
             };
             
@@ -138,11 +194,15 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             // Fallback to calculated data if API fails
             const balance = wallet.balance || calculateBalanceFromAddress(wallet.address, ecosystem);
             const tokens = wallet.tokens || generateTokensFromAddress(wallet.address, ecosystem);
+            const nfts = wallet.nfts || generateNFTsFromAddress(wallet.address);
+            const pools = wallet.pools || generatePoolsFromAddress(wallet.address);
             
             walletsWithData.push({
               ...wallet,
               balance,
               tokens,
+              nfts,
+              pools,
               lastUpdated: now
             });
             
@@ -167,6 +227,41 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             lastUpdated: Date.now()
           };
         });
+      }
+      
+      // Aggregate data across all wallets
+      if (ecosystem === 'alephium') {
+        const tokensMap: Record<string, TokenData> = {};
+        const nftsArray: NFTData[] = [];
+        const poolsArray: PoolData[] = [];
+        
+        // Aggregate tokens
+        walletsWithData.forEach(wallet => {
+          wallet.tokens?.forEach(token => {
+            if (tokensMap[token.symbol]) {
+              tokensMap[token.symbol].balance += token.balance;
+              tokensMap[token.symbol].value += token.value;
+            } else {
+              tokensMap[token.symbol] = { ...token };
+            }
+          });
+          
+          // Add NFTs to array
+          wallet.nfts?.forEach(nft => {
+            nftsArray.push(nft);
+          });
+          
+          // Add pools to array (unique by ID)
+          wallet.pools?.forEach(pool => {
+            if (!poolsArray.some(p => p.id === pool.id)) {
+              poolsArray.push(pool);
+            }
+          });
+        });
+        
+        setAggregatedTokens(tokensMap);
+        setAggregatedNFTs(nftsArray);
+        setAggregatedPools(poolsArray);
       }
       
       // Save updated wallet data back to localStorage
@@ -246,6 +341,62 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
       };
     });
   };
+  
+  // Generate NFTs based on wallet address
+  const generateNFTsFromAddress = (address: string): NFTData[] => {
+    const seed = address.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    const nftCount = (seed % 3) + 1; // 1-3 NFTs, deterministic based on address
+    
+    const collections = ['Alephium Punks', 'ALPH Apes', 'ALPH Artifacts', 'Crypto Critters'];
+    
+    const result: NFTData[] = [];
+    for (let i = 0; i < nftCount; i++) {
+      const charCode = (address.charCodeAt(i % address.length)) % collections.length;
+      const collection = collections[charCode];
+      const itemNumber = ((seed + i) % 9999) + 1;
+      
+      result.push({
+        id: `nft-${address.substring(0, 6)}-${i}`,
+        name: `${collection} #${itemNumber}`,
+        collection,
+        floorPrice: 25 + (seed % 100) / 2
+      });
+    }
+    
+    return result;
+  };
+  
+  // Generate pool data based on wallet address
+  const generatePoolsFromAddress = (address: string): PoolData[] => {
+    const seed = address.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    const poolCount = (seed % 2) + 1; // 1-2 pools, deterministic based on address
+    
+    const poolTokens = [
+      { token1: 'ALPH', token2: 'USDT' },
+      { token1: 'ALPH', token2: 'USDP' },
+      { token1: 'ABX', token2: 'USDP' },
+      { token1: 'ALPH', token2: 'ABX' }
+    ];
+    
+    const result: PoolData[] = [];
+    for (let i = 0; i < poolCount; i++) {
+      const charCode = (address.charCodeAt(i % address.length)) % poolTokens.length;
+      const poolPair = poolTokens[charCode];
+      const liquidity = 1000 + (seed % 5000);
+      const apr = 5 + (seed % 20);
+      
+      result.push({
+        id: `pool-${address.substring(0, 6)}-${i}`,
+        name: `${poolPair.token1}-${poolPair.token2} Pool`,
+        token1: poolPair.token1,
+        token2: poolPair.token2,
+        liquidity,
+        apr
+      });
+    }
+    
+    return result;
+  };
 
   // Delete wallet
   const confirmDeleteWallet = (walletId: string) => {
@@ -289,13 +440,12 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
     }
   };
 
-  // Function to format address for display
+  // Helper functions
   const formatAddress = (address: string) => {
     if (address.length <= 16) return address;
     return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
   };
 
-  // Function to get currency symbol
   const getCurrencySymbol = (eco: string) => {
     switch (eco) {
       case 'bitcoin': return 'BTC';
@@ -305,7 +455,6 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
     }
   };
 
-  // Refresh portfolio data
   const refreshPortfolioData = async () => {
     toast({
       title: "Refreshing Portfolio",
@@ -316,9 +465,9 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Portfolio Summary Card */}
-      <Card className="dark:bg-nostr-dark dark:border-white/20">
-        <CardHeader>
+      {/* Enhanced Portfolio Summary Card */}
+      <Card className="dark:bg-nostr-dark dark:border-white/20 overflow-hidden">
+        <CardHeader className="pb-0">
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
             Portfolio Overview
@@ -327,23 +476,75 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             Track your {ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} assets
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-md bg-muted dark:bg-nostr-dark border dark:border-white/10">
+        <CardContent className="space-y-4 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Total Value Card */}
+            <div className="p-4 rounded-md bg-gradient-to-br from-nostr-blue/20 to-nostr-dark border dark:border-white/10">
               <div className="text-sm text-muted-foreground">Total Value</div>
               <div className="text-2xl font-medium">${totalValue.toFixed(2)}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {ecosystem === 'alephium' && `≈ ${(totalValue / currentPrice).toFixed(2)} ALPH`}
+              </div>
             </div>
-            <div className="p-4 rounded-md bg-muted dark:bg-nostr-dark border dark:border-white/10">
+            
+            {/* Wallet Count Card */}
+            <div className="p-4 rounded-md bg-gradient-to-br from-purple-500/20 to-nostr-dark border dark:border-white/10">
               <div className="text-sm text-muted-foreground">Wallet Count</div>
               <div className="text-2xl font-medium">{wallets.length}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {wallets.length > 0 ? `${wallets.length} active wallets` : "No wallets added"}
+              </div>
             </div>
+            
+            {/* Alephium Price (Only show for Alephium) */}
+            {ecosystem === 'alephium' && (
+              <div className="p-4 rounded-md bg-gradient-to-br from-green-500/20 to-nostr-dark border dark:border-white/10">
+                <div className="text-sm text-muted-foreground">ALPH Price</div>
+                <div className="text-2xl font-medium">${currentPrice.toFixed(2)}</div>
+                <div className="mt-1 text-xs flex items-center">
+                  {priceChange24h >= 0 ? (
+                    <span className="text-green-500 flex items-center">
+                      ↑ {priceChange24h.toFixed(2)}%
+                    </span>
+                  ) : (
+                    <span className="text-red-500 flex items-center">
+                      ↓ {Math.abs(priceChange24h).toFixed(2)}%
+                    </span>
+                  )}
+                  <span className="text-muted-foreground ml-1">(24h)</span>
+                </div>
+              </div>
+            )}
           </div>
+          
+          {/* Asset Distribution Chart - placeholder for now */}
+          {ecosystem === 'alephium' && wallets.length > 0 && (
+            <div className="mt-4 pt-4 border-t dark:border-white/10">
+              <h3 className="text-sm font-medium mb-2">Asset Distribution</h3>
+              <div className="h-6 w-full rounded-full overflow-hidden bg-muted">
+                <div className="flex h-full">
+                  <div className="bg-nostr-blue h-full" style={{ width: '65%' }}>
+                    <span className="px-2 text-xs text-white">ALPH (65%)</span>
+                  </div>
+                  <div className="bg-purple-500 h-full" style={{ width: '20%' }}>
+                    <span className="px-2 text-xs text-white">Tokens (20%)</span>
+                  </div>
+                  <div className="bg-amber-500 h-full" style={{ width: '10%' }}>
+                    <span className="px-2 text-xs text-white">NFTs (10%)</span>
+                  </div>
+                  <div className="bg-green-500 h-full" style={{ width: '5%' }}>
+                    <span className="px-2 text-xs text-white">Pools (5%)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
           <Button 
             variant="outline" 
             size="sm" 
             onClick={refreshPortfolioData}
-            className="w-full dark:border-white/20"
+            className="w-full dark:border-white/20 mt-4"
             disabled={loading}
           >
             {loading ? "Refreshing..." : "Refresh Portfolio Data"}
@@ -351,7 +552,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         </CardContent>
       </Card>
 
-      {/* Wallets List Section */}
+      {/* Wallets List Section with Tabs */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Your {ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Wallets</h3>
       
@@ -366,6 +567,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Individual Wallet Cards */}
             {wallets.map((wallet) => (
               <Card key={wallet.id} className="dark:bg-nostr-dark dark:border-white/20">
                 <CardContent className="pt-4">
@@ -390,25 +592,107 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                       <Trash className="h-4 w-4 text-muted-foreground" />
                     </Button>
                   </div>
-
-                  {/* Token List */}
-                  {wallet.tokens && wallet.tokens.length > 0 && (
+                  
+                  {/* Wallet Data Tabs */}
+                  {ecosystem === 'alephium' && (
                     <div className="mt-4 pt-4 border-t dark:border-white/10">
-                      <h4 className="text-sm font-medium mb-2">Tokens</h4>
-                      <div className="space-y-2">
-                        {wallet.tokens.map((token, idx) => (
-                          <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
-                            <div className="flex items-center">
-                              <Circle className="h-4 w-4 mr-2 text-nostr-blue" />
-                              <span>{token.symbol}</span>
+                      <Tabs defaultValue="tokens" className="w-full">
+                        <TabsList className="w-full dark:bg-nostr-dark mb-3 grid grid-cols-3">
+                          <TabsTrigger value="tokens" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
+                            <Token className="h-3 w-3 mr-1" />
+                            Tokens
+                          </TabsTrigger>
+                          <TabsTrigger value="nfts" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
+                            <Layers className="h-3 w-3 mr-1" />
+                            NFTs
+                          </TabsTrigger>
+                          <TabsTrigger value="pools" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
+                            <Pool className="h-3 w-3 mr-1" />
+                            Pools
+                          </TabsTrigger>
+                        </TabsList>
+                        
+                        {/* Tokens Tab Content */}
+                        <TabsContent value="tokens" className="mt-0">
+                          {wallet.tokens && wallet.tokens.length > 0 ? (
+                            <div className="space-y-2">
+                              {wallet.tokens.map((token, idx) => (
+                                <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
+                                  <div className="flex items-center">
+                                    <Circle className="h-4 w-4 mr-2 text-nostr-blue" />
+                                    <span>{token.symbol}</span>
+                                  </div>
+                                  <div className="text-sm">
+                                    <div>{token.balance.toFixed(2)}</div>
+                                    <div className="text-muted-foreground text-xs">${token.value.toFixed(2)}</div>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            <div className="text-sm">
-                              <div>{token.balance.toFixed(2)}</div>
-                              <div className="text-muted-foreground text-xs">${token.value.toFixed(2)}</div>
+                          ) : (
+                            <div className="text-center py-3 text-sm text-muted-foreground">
+                              No tokens found in this wallet
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          )}
+                        </TabsContent>
+                        
+                        {/* NFTs Tab Content */}
+                        <TabsContent value="nfts" className="mt-0">
+                          {wallet.nfts && wallet.nfts.length > 0 ? (
+                            <div className="space-y-2">
+                              {wallet.nfts.map((nft, idx) => (
+                                <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
+                                  <div className="flex items-center">
+                                    <div className="h-8 w-8 rounded bg-nostr-blue/20 flex items-center justify-center mr-2 text-xs">
+                                      NFT
+                                    </div>
+                                    <div>
+                                      <div className="text-sm">{nft.name}</div>
+                                      <div className="text-xs text-muted-foreground">{nft.collection}</div>
+                                    </div>
+                                  </div>
+                                  <div className="text-sm">
+                                    <div className="text-muted-foreground text-xs">Floor</div>
+                                    <div>{nft.floorPrice.toFixed(2)} ALPH</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-3 text-sm text-muted-foreground">
+                              No NFTs found in this wallet
+                            </div>
+                          )}
+                        </TabsContent>
+                        
+                        {/* Pools Tab Content */}
+                        <TabsContent value="pools" className="mt-0">
+                          {wallet.pools && wallet.pools.length > 0 ? (
+                            <div className="space-y-2">
+                              {wallet.pools.map((pool, idx) => (
+                                <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
+                                  <div>
+                                    <div className="text-sm font-medium">{pool.name}</div>
+                                    <div className="flex space-x-1 text-xs text-muted-foreground">
+                                      <span>{pool.token1}</span>
+                                      <span>/</span>
+                                      <span>{pool.token2}</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-sm">${pool.liquidity.toLocaleString()}</div>
+                                    <div className="text-xs text-green-500">APR: {pool.apr.toFixed(1)}%</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-3 text-sm text-muted-foreground">
+                              No liquidity pools found for this wallet
+                            </div>
+                          )}
+                        </TabsContent>
+                      </Tabs>
                     </div>
                   )}
                   
@@ -421,6 +705,115 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                 </CardContent>
               </Card>
             ))}
+            
+            {/* Aggregated Data Section - Only for Alephium with multiple wallets */}
+            {ecosystem === 'alephium' && wallets.length > 1 && (
+              <Card className="dark:bg-nostr-dark dark:border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-base">Aggregated Assets</CardTitle>
+                  <CardDescription>Combined assets across all your wallets</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue="tokens">
+                    <TabsList className="w-full dark:bg-nostr-dark mb-3 grid grid-cols-3">
+                      <TabsTrigger value="tokens" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
+                        <Token className="h-3 w-3 mr-1" />
+                        All Tokens
+                      </TabsTrigger>
+                      <TabsTrigger value="nfts" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
+                        <Layers className="h-3 w-3 mr-1" />
+                        All NFTs
+                      </TabsTrigger>
+                      <TabsTrigger value="pools" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
+                        <Pool className="h-3 w-3 mr-1" />
+                        All Pools
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    {/* Aggregated Tokens Tab */}
+                    <TabsContent value="tokens" className="mt-0">
+                      {Object.keys(aggregatedTokens).length > 0 ? (
+                        <div className="space-y-2">
+                          {Object.values(aggregatedTokens).map((token, idx) => (
+                            <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
+                              <div className="flex items-center">
+                                <Circle className="h-4 w-4 mr-2 text-nostr-blue" />
+                                <span>{token.symbol}</span>
+                              </div>
+                              <div className="text-sm">
+                                <div>{token.balance.toFixed(2)}</div>
+                                <div className="text-muted-foreground text-xs">${token.value.toFixed(2)}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-3 text-sm text-muted-foreground">
+                          No tokens found across wallets
+                        </div>
+                      )}
+                    </TabsContent>
+                    
+                    {/* Aggregated NFTs Tab */}
+                    <TabsContent value="nfts" className="mt-0">
+                      {aggregatedNFTs.length > 0 ? (
+                        <div className="space-y-2">
+                          {aggregatedNFTs.map((nft, idx) => (
+                            <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
+                              <div className="flex items-center">
+                                <div className="h-8 w-8 rounded bg-nostr-blue/20 flex items-center justify-center mr-2 text-xs">
+                                  NFT
+                                </div>
+                                <div>
+                                  <div className="text-sm">{nft.name}</div>
+                                  <div className="text-xs text-muted-foreground">{nft.collection}</div>
+                                </div>
+                              </div>
+                              <div className="text-sm">
+                                <div className="text-muted-foreground text-xs">Floor</div>
+                                <div>{nft.floorPrice.toFixed(2)} ALPH</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-3 text-sm text-muted-foreground">
+                          No NFTs found across wallets
+                        </div>
+                      )}
+                    </TabsContent>
+                    
+                    {/* Aggregated Pools Tab */}
+                    <TabsContent value="pools" className="mt-0">
+                      {aggregatedPools.length > 0 ? (
+                        <div className="space-y-2">
+                          {aggregatedPools.map((pool, idx) => (
+                            <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
+                              <div>
+                                <div className="text-sm font-medium">{pool.name}</div>
+                                <div className="flex space-x-1 text-xs text-muted-foreground">
+                                  <span>{pool.token1}</span>
+                                  <span>/</span>
+                                  <span>{pool.token2}</span>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm">${pool.liquidity.toLocaleString()}</div>
+                                <div className="text-xs text-green-500">APR: {pool.apr.toFixed(1)}%</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-3 text-sm text-muted-foreground">
+                          No liquidity pools found across wallets
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>
