@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import NoteCard from "./NoteCard";
@@ -158,16 +159,19 @@ export default function NoteFeed({ pubkey, followingFeed }: NoteFeedProps) {
           return;
         }
         
-        // If result exists and is an object, extract its properties safely
-        if (result && typeof result === 'object') {
-          // Check for hasMore property
-          if ('hasMore' in result) {
-            setHasMore(result.hasMore);
-          }
-          
-          // Check for subId property
-          if ('subId' in result) {
-            subscriptionIdRef.current = result.subId;
+        // Explicitly check if result is not null before attempting to access properties
+        if (result !== null) {
+          // Check if result is an object
+          if (typeof result === 'object') {
+            // Check for hasMore property
+            if ('hasMore' in result) {
+              setHasMore(result.hasMore);
+            }
+            
+            // Check for subId property
+            if ('subId' in result) {
+              subscriptionIdRef.current = result.subId;
+            }
           }
         }
         
