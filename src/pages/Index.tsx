@@ -99,7 +99,7 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Create new note</DialogTitle>
           </DialogHeader>
-          <CreateNote onNoteCreated={() => setIsCreateNoteOpen(false)} />
+          <CreateNote />
         </DialogContent>
       </Dialog>
     </MainLayout>
