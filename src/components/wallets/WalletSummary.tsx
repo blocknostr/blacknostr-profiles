@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink } from "lucide-react";
 import { nostrService } from "@/lib/nostr";
-import { Event, getEventHash } from "nostr-tools"; // Ensure Event is imported
+import { getEventHash, type Event } from "nostr-tools"; // Ensure Event is imported
 
 // Helper interface for the structure of individual network-specific token lists
 interface NetworkSpecificTokenList {
