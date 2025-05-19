@@ -37,7 +37,7 @@ interface TokenList {
 
 // Updated URL to the correct path for the mainnet token list
 const TOKEN_LIST_URL = "https://raw.githubusercontent.com/alephium/token-list/master/tokens/mainnet.json";
-const TRANSACTIONS_API = "https://backend.mainnet.alephium.org/tokens";
+const EXPLORER_API = "https://explorer.alephium.org/api";
 let tokenCache: Record<string, TokenMetadata> | null = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 3600000; // 1 hour in milliseconds
@@ -75,7 +75,46 @@ export const fetchTokenList = async (): Promise<Record<string, TokenMetadata>> =
   }
   
   try {
-    console.log("Fetching token list from:", TOKEN_LIST_URL);
+    // First try the explorer API for tokens
+    try {
+      const response = await fetch(`${EXPLORER_API}/tokens?page=1&limit=100`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.tokens && Array.isArray(data.tokens)) {
+          const tokenMap: Record<string, TokenMetadata> = {};
+          
+          data.tokens.forEach((token: any) => {
+            // Add CoinGecko ID if we have a mapping
+            const mapping = tokenMappings[token.id];
+            tokenMap[token.id] = {
+              id: token.id,
+              name: token.name || `Token ${token.id.substring(0, 8)}`,
+              symbol: token.symbol || `TKN-${token.id.substring(0, 4)}`,
+              decimals: mapping?.decimals || token.decimals || 18,
+              logoURI: token.logoURI,
+              description: token.description,
+              coingeckoId: mapping?.coingeckoId
+            };
+          });
+          
+          // Make sure ALPH is included
+          if (!tokenMap["ALPH"]) {
+            tokenMap["ALPH"] = LOCAL_TOKEN_LIST["ALPH"];
+          }
+          
+          // Update cache
+          tokenCache = tokenMap;
+          lastFetchTime = currentTime;
+          return tokenMap;
+        }
+      }
+    } catch (error) {
+      console.warn("Error fetching tokens from explorer:", error);
+    }
+    
+    // Fallback to GitHub token list
+    console.log("Fetching token list from GitHub:", TOKEN_LIST_URL);
     const response = await fetch(TOKEN_LIST_URL, {
       headers: {
         'Accept': 'application/json',
@@ -86,11 +125,10 @@ export const fetchTokenList = async (): Promise<Record<string, TokenMetadata>> =
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch token list: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to fetch token list: ${response.status}`);
     }
     
     const data = await response.json() as TokenList;
-    console.log("Fetched token list:", data);
     
     // Create a map of token ID to token data for quick lookups
     const tokenMap: Record<string, TokenMetadata> = {};
@@ -108,14 +146,7 @@ export const fetchTokenList = async (): Promise<Record<string, TokenMetadata>> =
     
     // Make sure ALPH is included
     if (!tokenMap["ALPH"]) {
-      tokenMap["ALPH"] = {
-        id: "ALPH",
-        name: "Alephium",
-        symbol: "ALPH",
-        decimals: 18,
-        logoURI: "https://raw.githubusercontent.com/alephium/token-list/master/logos/alephium.png",
-        coingeckoId: "alephium"
-      };
+      tokenMap["ALPH"] = LOCAL_TOKEN_LIST["ALPH"];
     }
     
     // Update cache
@@ -142,21 +173,21 @@ export const fetchTokenList = async (): Promise<Record<string, TokenMetadata>> =
 };
 
 /**
- * Fetches transactions for a specific token
+ * Fetches token transactions for a specific token
  */
 export const fetchTokenTransactions = async (tokenId: string, page: number = 1, limit: number = 10): Promise<any[]> => {
   try {
-    const url = `${TRANSACTIONS_API}/${tokenId}/transactions?page=${page}&limit=${limit}`;
+    const url = `${EXPLORER_API}/tokens/${tokenId}/transactions?page=${page}&limit=${limit}`;
     const response = await fetch(url, {
       signal: AbortSignal.timeout(3000) // 3 second timeout
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch transactions: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to fetch transactions: ${response.status}`);
     }
     
     const data = await response.json();
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(data.transactions) ? data.transactions : [];
   } catch (error) {
     console.error(`Error fetching transactions for token ${tokenId}:`, error);
     return [];
@@ -168,15 +199,30 @@ export const fetchTokenTransactions = async (tokenId: string, page: number = 1, 
  */
 export const getTokenMetadata = async (tokenId: string): Promise<TokenMetadata | undefined> => {
   try {
-    const tokenMap = await fetchTokenList();
-    const token = tokenMap[tokenId] || getFallbackTokenData(tokenId);
-    
-    // Fetch recent transactions only if they haven't been fetched already
-    if (!token.transactions) {
-      token.transactions = await fetchTokenTransactions(tokenId);
+    // First try direct API call to get token info
+    try {
+      const response = await fetch(`${EXPLORER_API}/tokens/${tokenId}`);
+      
+      if (response.ok) {
+        const tokenInfo = await response.json();
+        return {
+          id: tokenId,
+          name: tokenInfo.name || `Token ${tokenId.substring(0, 8)}`,
+          symbol: tokenInfo.symbol || `TKN-${tokenId.substring(0, 4)}`,
+          decimals: tokenInfo.decimals || 18,
+          description: tokenInfo.description,
+          logoURI: tokenInfo.logoURI,
+          // Add other fields as available
+          coingeckoId: tokenMappings[tokenId]?.coingeckoId
+        };
+      }
+    } catch (directError) {
+      console.warn(`Could not fetch direct token info for ${tokenId}:`, directError);
     }
     
-    return token;
+    // Fallback to token list
+    const tokenMap = await fetchTokenList();
+    return tokenMap[tokenId] || getFallbackTokenData(tokenId);
   } catch (error) {
     console.error(`Error getting metadata for token ${tokenId}:`, error);
     return getFallbackTokenData(tokenId);

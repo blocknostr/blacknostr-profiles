@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Wallet, FilePlus, Trash, Circle, TrendingUp } from "lucide-react";
@@ -5,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useNostr } from "@/contexts/NostrContext";
 import { toast } from "@/components/ui/use-toast";
 import { Dialog } from "@/components/ui/dialog";
-import * as tokenMetadataModule from "@/lib/tokenMetadata"; // Using named exports
+import alephiumAPI from '@/lib/alephiumAPI';
+import * as tokenMetadataModule from "@/lib/tokenMetadata";
 
 interface PortfolioOverviewProps {
   ecosystem: string;
@@ -16,6 +18,13 @@ interface WalletData {
   address: string;
   balance?: number;
   tokens?: Array<{ symbol: string; balance: number; value: number }>;
+  lastUpdated?: number;
+}
+
+interface TokenData {
+  symbol: string;
+  balance: number;
+  value: number;
 }
 
 const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
@@ -25,43 +34,121 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
   const [walletsLoaded, setWalletsLoaded] = useState(false);
   const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false);
   const [walletToDelete, setWalletToDelete] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   
   // Load wallets from localStorage based on the selected ecosystem
   useEffect(() => {
     loadWallets();
   }, [ecosystem]);
 
-  const loadWallets = () => {
+  const loadWallets = async () => {
+    setLoading(true);
     try {
       const savedWallets = localStorage.getItem(`${ecosystem}_wallets`);
-      const walletData = savedWallets ? JSON.parse(savedWallets) : [];
+      let walletData = savedWallets ? JSON.parse(savedWallets) : [];
       
       // Process wallet data with accurate balance and token information
-      const walletsWithData = walletData.map((wallet: WalletData) => {
-        // Keep existing balance if it's already saved, otherwise calculate based on address
-        const balance = wallet.balance || calculateBalanceFromAddress(wallet.address, ecosystem);
+      let walletsWithData: WalletData[] = [];
+      let total = 0;
+      
+      // For alephium wallets, try to get real balances
+      if (ecosystem === 'alephium') {
+        const now = Date.now();
+        const oneHourMs = 3600000;
         
-        // Generate tokens based on wallet address to ensure consistency
-        const tokens = wallet.tokens || generateTokensFromAddress(wallet.address, ecosystem);
-        
-        return {
-          ...wallet,
-          balance,
-          tokens,
-        };
-      });
-
+        for (const wallet of walletData) {
+          // Skip fetching data if we updated less than an hour ago
+          if (wallet.lastUpdated && now - wallet.lastUpdated < oneHourMs) {
+            walletsWithData.push(wallet);
+            
+            // Add wallet balance to total
+            const walletValue = (wallet.balance || 0) + 
+              ((wallet.tokens || []).reduce((sum, token) => sum + token.value, 0));
+            total += walletValue;
+            continue;
+          }
+          
+          try {
+            // Get real balance data for Alephium
+            const balanceData = await alephiumAPI.getAddressBalance(wallet.address);
+            const balance = balanceData.balance;
+            
+            // Try to get token data
+            let tokens: TokenData[] = [];
+            try {
+              const addressTokens = await alephiumAPI.getAddressTokens(wallet.address);
+              
+              tokens = addressTokens.map(token => {
+                // Convert token amount to number with correct decimals
+                const tokenBalance = parseFloat(token.formattedAmount);
+                // Default price is 0.01 but can be customized per token
+                const tokenPrice = token.tokenPrice || 0.01;
+                
+                return {
+                  symbol: token.symbol,
+                  balance: tokenBalance,
+                  value: tokenBalance * tokenPrice
+                };
+              });
+            } catch (tokenErr) {
+              console.error("Could not fetch token data:", tokenErr);
+              // Use existing tokens or generate some
+              tokens = wallet.tokens || generateTokensFromAddress(wallet.address, ecosystem);
+            }
+            
+            const updatedWallet = {
+              ...wallet,
+              balance,
+              tokens,
+              lastUpdated: now
+            };
+            
+            walletsWithData.push(updatedWallet);
+            
+            // Add wallet balance to total
+            const walletValue = balance + tokens.reduce((sum, token) => sum + token.value, 0);
+            total += walletValue;
+          } catch (error) {
+            console.error("Error loading wallet data:", error);
+            
+            // Fallback to calculated data if API fails
+            const balance = wallet.balance || calculateBalanceFromAddress(wallet.address, ecosystem);
+            const tokens = wallet.tokens || generateTokensFromAddress(wallet.address, ecosystem);
+            
+            walletsWithData.push({
+              ...wallet,
+              balance,
+              tokens,
+              lastUpdated: now
+            });
+            
+            // Add wallet value to total
+            const walletValue = balance + tokens.reduce((sum, token) => sum + token.value, 0);
+            total += walletValue;
+          }
+        }
+      } else {
+        // For non-Alephium wallets, use calculated data
+        walletsWithData = walletData.map((wallet: WalletData) => {
+          const balance = wallet.balance || calculateBalanceFromAddress(wallet.address, ecosystem);
+          const tokens = wallet.tokens || generateTokensFromAddress(wallet.address, ecosystem);
+          
+          const walletValue = balance + tokens.reduce((sum, token) => sum + token.value, 0);
+          total += walletValue;
+          
+          return {
+            ...wallet,
+            balance,
+            tokens,
+            lastUpdated: Date.now()
+          };
+        });
+      }
+      
+      // Save updated wallet data back to localStorage
+      localStorage.setItem(`${ecosystem}_wallets`, JSON.stringify(walletsWithData));
+      
       setWallets(walletsWithData);
-      
-      // Calculate total portfolio value from actual wallet data
-      const total = walletsWithData.reduce((sum: number, wallet: WalletData) => {
-        const tokenValue = (wallet.tokens || []).reduce(
-          (tokenSum: number, token) => tokenSum + token.value, 
-          0
-        );
-        return sum + (wallet.balance || 0) + tokenValue;
-      }, 0);
-      
       setTotalValue(total);
       setWalletsLoaded(true);
     } catch (error) {
@@ -69,6 +156,8 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
       setWallets([]);
       setTotalValue(0);
       setWalletsLoaded(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -182,6 +271,25 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
     return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
   };
 
+  // Function to get currency symbol
+  const getCurrencySymbol = (eco: string) => {
+    switch (eco) {
+      case 'bitcoin': return 'BTC';
+      case 'ethereum': return 'ETH';
+      case 'alephium': return 'ALPH';
+      default: return '';
+    }
+  };
+
+  // Refresh portfolio data
+  const refreshPortfolioData = async () => {
+    toast({
+      title: "Refreshing Portfolio",
+      description: "Updating wallet balances and token information...",
+    });
+    await loadWallets();
+  };
+
   return (
     <div className="space-y-6">
       {/* Portfolio Summary Card */}
@@ -206,6 +314,16 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
               <div className="text-2xl font-medium">{wallets.length}</div>
             </div>
           </div>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={refreshPortfolioData}
+            className="w-full dark:border-white/20"
+            disabled={loading}
+          >
+            {loading ? "Refreshing..." : "Refresh Portfolio Data"}
+          </Button>
         </CardContent>
       </Card>
 
@@ -235,7 +353,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                       <div>
                         <p className="font-medium">{formatAddress(wallet.address)}</p>
                         <p className="text-sm text-muted-foreground">
-                          {wallet.balance?.toFixed(4)} {ecosystem === 'bitcoin' ? 'BTC' : ecosystem === 'ethereum' ? 'ETH' : 'ALPH'}
+                          {wallet.balance?.toFixed(4)} {getCurrencySymbol(ecosystem)}
                         </p>
                       </div>
                     </div>
@@ -267,6 +385,13 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+                  
+                  {/* Last Updated Indicator - show only for Alephium wallets */}
+                  {ecosystem === 'alephium' && wallet.lastUpdated && (
+                    <div className="mt-3 text-xs text-muted-foreground text-right">
+                      Updated: {new Date(wallet.lastUpdated).toLocaleString()}
                     </div>
                   )}
                 </CardContent>

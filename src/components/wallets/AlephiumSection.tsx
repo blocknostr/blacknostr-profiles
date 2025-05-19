@@ -109,10 +109,6 @@ const AlephiumSection = () => {
       // First check if network stats can be loaded
       await loadNetworkStats();
       
-      // For Alephium web3-react, we don't directly call connect
-      // The connection is handled by the AlephiumWalletProvider
-      // We just need to inform the user to approve the connection in their wallet
-      
       toast({
         title: "Connecting to Alephium",
         description: "Please approve the connection request in your wallet",
@@ -134,8 +130,6 @@ const AlephiumSection = () => {
   
   const disconnectWallet = async () => {
     try {
-      // For Alephium web3-react, we don't directly call connect/disconnect
-      // The disconnect functionality is handled by the AlephiumWalletProvider
       setIsConnected(false);
       setWalletAddress(null);
       setBalance(null);

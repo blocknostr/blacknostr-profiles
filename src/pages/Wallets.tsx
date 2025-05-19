@@ -18,7 +18,7 @@ import WalletDialog from "@/components/wallets/WalletDialog";
 type Ecosystem = "bitcoin" | "ethereum" | "alephium";
 
 const Wallets = () => {
-  const [selectedEcosystem, setSelectedEcosystem] = useState<Ecosystem>("bitcoin");
+  const [selectedEcosystem, setSelectedEcosystem] = useState<Ecosystem>("alephium"); // Default to Alephium
   const [walletCount, setWalletCount] = useState<number>(0);
   
   // Get wallet count when ecosystem changes
@@ -106,14 +106,14 @@ const Wallets = () => {
                "Alephium"} Portfolio
             </CardTitle>
             
-            {/* Wallet Manager Dialog - Now inside the card header */}
+            {/* Wallet Manager Dialog */}
             <WalletDialog ecosystem={selectedEcosystem}>
               <DialogTrigger asChild>
                 <Button 
                   variant="outline" 
                   size="sm" 
                   className="gap-1.5 dark:bg-nostr-dark dark:border-white/20 h-8 px-2"
-                  onClick={() => updateWalletCount(selectedEcosystem)} // Refresh count when dialog is opened
+                  onClick={() => updateWalletCount(selectedEcosystem)}
                 >
                   <Wallet className="h-4 w-4" />
                   <span>{walletCount}/5</span>
