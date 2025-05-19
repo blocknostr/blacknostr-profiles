@@ -353,6 +353,19 @@ function getPayloadConfigFromPayload(
     : config[key as keyof typeof config]
 }
 
+// Explicitly set Recharts theme
+const theme = {
+  colors: {
+    primary: '#0042C4',
+    secondary: '#6366f1',
+    tertiary: '#8b5cf6',
+    quaternary: '#d946ef',
+    quinary: '#f97316',
+    senary: '#06b6d4',
+  }
+};
+
+// Add theme to exports
 export {
   ChartContainer,
   ChartTooltip,
@@ -360,4 +373,5 @@ export {
   ChartLegend,
   ChartLegendContent,
   ChartStyle,
+  theme,
 }
