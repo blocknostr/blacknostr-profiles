@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
@@ -33,8 +32,9 @@ interface NostrContextType {
   createAccount: () => void;
   fetchProfile: (pubkey: string) => Promise<NostrProfile | null>;
   fetchNotes: (pubkey?: string) => Promise<NostrNote[]>;
+  fetchSingleNote: (id: string) => Promise<NostrNote | null>;
   updateProfile: (updatedProfile: NostrProfile) => Promise<boolean>;
-  publishNote: (content: string) => Promise<boolean>;
+  publishNote: (content: string, tags?: string[][]) => Promise<string | null>;
   followUser: (pubkey: string) => Promise<boolean>;
   unfollowUser: (pubkey: string) => Promise<boolean>;
   likeNote: (noteId: string) => Promise<boolean>;
@@ -338,6 +338,32 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const fetchSingleNote = async (id: string): Promise<NostrNote | null> => {
+    if (!pool) return null;
+
+    try {
+      // Fetch a single note by ID (compliant with NIP-01)
+      const events = await pool.list(
+        relays.filter(r => r.read).map(r => r.url),
+        [
+          {
+            kinds: [1], // Text note
+            ids: [id],
+          }
+        ]
+      );
+
+      if (events.length > 0) {
+        return parseNote(events[0]);
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error fetching note:', error);
+      return null;
+    }
+  };
+
   const updateProfile = async (updatedProfile: NostrProfile): Promise<boolean> => {
     if (!pool) {
       toast({
@@ -448,18 +474,102 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const publishNote = async (content: string): Promise<boolean> => {
-    if (!pool || !privateKey || !publicKey) return false;
+  const publishNote = async (content: string, tags: string[][] = []): Promise<string | null> => {
+    if (!pool) {
+      toast({
+        title: "Connection error",
+        description: "Cannot connect to NOSTR network",
+        variant: "destructive"
+      });
+      return null;
+    }
+    
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to publish a note",
+        variant: "destructive"
+      });
+      return null;
+    }
+    
+    if (!publicKey) {
+      toast({
+        title: "Missing public key",
+        description: "Your public key is not available",
+        variant: "destructive"
+      });
+      return null;
+    }
 
-    // Implement this with nostr-tools
-    // You'll need to create a signed event and publish it
-    // This is a placeholder for now
-    toast({
-      title: 'Note publishing not implemented yet',
-      description: 'Coming soon!',
-    });
+    try {
+      // Create note event (kind: 1) according to NIP-01
+      let event: Event = {
+        kind: 1, // Text note
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: tags, // Use provided tags
+        content: content,
+        id: '', // Will be set below
+        sig: '', // Will be set below
+      };
 
-    return false;
+      // Calculate id from event data
+      event.id = getEventHash(event);
+      
+      // If using extension, sign with it
+      if (window.nostr) {
+        try {
+          const signedEvent = await window.nostr.signEvent(event);
+          
+          // Publish to relays
+          await Promise.all(
+            relays
+              .filter(relay => relay.write)
+              .map(relay => pool.publish([relay.url], signedEvent))
+          );
+          
+          // Return the note ID
+          return signedEvent.id;
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          toast({
+            title: "Extension signing failed",
+            description: "Please check your NOSTR browser extension",
+            variant: "destructive"
+          });
+          return null;
+        }
+      } else if (privateKey) {
+        // Sign with local private key
+        event.sig = signEvent(event, privateKey);
+        
+        // Publish to relays
+        await Promise.all(
+          relays
+            .filter(relay => relay.write)
+            .map(relay => pool.publish([relay.url], event))
+        );
+        
+        // Return the note ID
+        return event.id;
+      } else {
+        toast({
+          title: "Signing error",
+          description: "No private key or extension available for signing",
+          variant: "destructive"
+        });
+        return null;
+      }
+    } catch (error) {
+      console.error('Error publishing note:', error);
+      toast({
+        title: "Error publishing note",
+        description: "There was an error publishing your note",
+        variant: "destructive"
+      });
+      return null;
+    }
   };
 
   const followUser = async (pubkey: string): Promise<boolean> => {
@@ -597,6 +707,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     createAccount,
     fetchProfile,
     fetchNotes,
+    fetchSingleNote,
     updateProfile,
     publishNote,
     followUser,
