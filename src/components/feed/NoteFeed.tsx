@@ -59,6 +59,7 @@ export default function NoteFeed({ pubkey, followingFeed }: NoteFeedProps) {
   if (feedNotes.length === 0) {
     return (
       <EmptyFeedState 
+        message="No notes found in this feed"
         followingFeed={followingFeed} 
         onRefresh={handleRefresh} 
       />
