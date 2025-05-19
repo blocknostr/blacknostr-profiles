@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Wallet, FilePlus, Trash, Circle, TrendingUp, DatabaseBackup, Database, FileText, Layers, Token, Pool } from "lucide-react";
+import { Wallet, FilePlus, Trash, Circle, TrendingUp, DatabaseBackup, Database, FileText, Layers, CircleDollarSign, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useNostr } from "@/contexts/NostrContext";
 import { toast } from "@/components/ui/use-toast";
@@ -599,7 +599,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                       <Tabs defaultValue="tokens" className="w-full">
                         <TabsList className="w-full dark:bg-nostr-dark mb-3 grid grid-cols-3">
                           <TabsTrigger value="tokens" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
-                            <Token className="h-3 w-3 mr-1" />
+                            <CircleDollarSign className="h-3 w-3 mr-1" />
                             Tokens
                           </TabsTrigger>
                           <TabsTrigger value="nfts" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
@@ -607,7 +607,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                             NFTs
                           </TabsTrigger>
                           <TabsTrigger value="pools" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
-                            <Pool className="h-3 w-3 mr-1" />
+                            <BarChart3 className="h-3 w-3 mr-1" />
                             Pools
                           </TabsTrigger>
                         </TabsList>
@@ -717,7 +717,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                   <Tabs defaultValue="tokens">
                     <TabsList className="w-full dark:bg-nostr-dark mb-3 grid grid-cols-3">
                       <TabsTrigger value="tokens" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
-                        <Token className="h-3 w-3 mr-1" />
+                        <CircleDollarSign className="h-3 w-3 mr-1" />
                         All Tokens
                       </TabsTrigger>
                       <TabsTrigger value="nfts" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
@@ -725,7 +725,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                         All NFTs
                       </TabsTrigger>
                       <TabsTrigger value="pools" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
-                        <Pool className="h-3 w-3 mr-1" />
+                        <BarChart3 className="h-3 w-3 mr-1" />
                         All Pools
                       </TabsTrigger>
                     </TabsList>
