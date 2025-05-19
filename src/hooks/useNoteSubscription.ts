@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Event, Filter } from 'nostr-tools';
-import { useNostrContext } from '@/contexts/NostrContext';
+import { useNostr } from '@/contexts/NostrContext';
 
 interface UseNoteSubscriptionProps {
   pubkey?: string;
@@ -33,7 +33,7 @@ const useNoteSubscription = ({
   initialNotes = [],
   enableSearch = false,
 }: UseNoteSubscriptionProps) => {
-  const { pool, relays } = useNostrContext();
+  const { pool, relays } = useNostr();
   const [notes, setNotes] = useState<Event[]>(initialNotes);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
