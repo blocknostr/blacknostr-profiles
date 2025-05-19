@@ -54,12 +54,12 @@ export default {
 					foreground: 'hsl(var(--card-foreground))'
 				},
 				nostr: {
-					primary: '#00A3FF',  
-					secondary: '#00A3FF', 
+					primary: '#0042C4',  // Changed from #00A3FF to royal blue
+					secondary: '#0042C4', // Changed from #00A3FF to royal blue
 					dark: '#141518',    
 					light: '#F8FAFC',
 					muted: '#A0A0A0',    
-					blue: '#00A3FF',
+					blue: '#0042C4',    // Changed from #00A3FF to royal blue
 					cardBg: '#1E2023'
 				}
 			},

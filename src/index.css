@@ -14,16 +14,16 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 195 100% 50%; /* Accent Blue #00A3FF */
+    --primary: 223 100% 38%; /* Royal Blue #0042C4 */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 195 100% 50%; /* Accent Blue #00A3FF */
+    --secondary: 223 100% 38%; /* Royal Blue #0042C4 */
     --secondary-foreground: 210 40% 98%;
 
     --muted: 210 40% 96%;
     --muted-foreground: 0 0% 63%; /* Light Gray #A0A0A0 */
 
-    --accent: 195 100% 50%; /* Accent Blue #00A3FF */
+    --accent: 223 100% 38%; /* Royal Blue #0042C4 */
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 84% 60%;
@@ -46,16 +46,16 @@
     --popover: 225 9% 9%; /* Dark Background #141518 */
     --popover-foreground: 0 0% 100%;
 
-    --primary: 195 100% 50%; /* Accent Blue #00A3FF */
+    --primary: 223 100% 38%; /* Royal Blue #0042C4 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 195 100% 50%; /* Accent Blue #00A3FF */
+    --secondary: 223 100% 38%; /* Royal Blue #0042C4 */
     --secondary-foreground: 0 0% 100%;
 
     --muted: 220 8% 13%; /* Dark Gray #1E2023 */
     --muted-foreground: 0 0% 63%; /* Light Gray #A0A0A0 */
 
-    --accent: 195 100% 50%; /* Accent Blue #00A3FF */
+    --accent: 223 100% 38%; /* Royal Blue #0042C4 */
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 63% 31%;
