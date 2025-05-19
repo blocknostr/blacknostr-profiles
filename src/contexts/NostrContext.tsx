@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
 import {
@@ -14,7 +14,8 @@ import {
   parseNote,
   profileToMetadata,
   NOSTR_KEYS,
-  hexToNpub
+  hexToNpub,
+  NOSTR_KINDS
 } from '@/lib/nostr';
 
 interface NostrContextType {
@@ -43,6 +44,15 @@ interface NostrContextType {
   removeRelay: (url: string) => void;
   updateRelay: (url: string, read: boolean, write: boolean) => void;
   saveRelaysToStorage: () => void;
+  // New streaming methods
+  streamNotes: (
+    pubkey?: string | null, 
+    limit?: number, 
+    onNotes?: (notes: NostrNote[], isEose: boolean) => void, 
+    since?: number | null,
+    until?: number | null
+  ) => string;
+  unsubscribe: (subscriptionId: string) => void;
 }
 
 const NostrContext = createContext<NostrContextType | null>(null);
@@ -65,6 +75,11 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [notes, setNotes] = useState<NostrNote[]>([]);
   const [relays, setRelays] = useState<NostrRelayConfig[]>(DEFAULT_RELAYS);
   const [pool, setPool] = useState<SimplePool | null>(null);
+  
+  // Track active subscriptions
+  const [subscriptions, setSubscriptions] = useState<Map<string, { sub: any, relays: string[] }>>(
+    new Map()
+  );
 
   // Initialize NOSTR connection
   useEffect(() => {
@@ -95,7 +110,8 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setNpub(userProfile.npub || null);
           }
 
-          // Fetch user's notes
+          // Fetch user's notes - now we'll use the new streamNotes method
+          // This first call still uses fetchNotes for backward compatibility
           const userNotes = await fetchNotes(savedPublicKey);
           setNotes(userNotes);
         }
@@ -115,9 +131,130 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Clean up
     return () => {
-      if (pool) pool.close(relays.map(relay => relay.url));
+      // Close all subscriptions
+      subscriptions.forEach((sub, id) => {
+        if (pool && sub.sub) {
+          try {
+            pool.close(sub.relays, sub.sub);
+          } catch (err) {
+            console.error(`Error closing subscription ${id}:`, err);
+          }
+        }
+      });
+      
+      // Close the pool connection to all relays
+      if (pool) {
+        try {
+          pool.close(relays.map(relay => relay.url));
+        } catch (err) {
+          console.error('Error closing relay pool:', err);
+        }
+      }
     };
-  }, []);
+  }, []); // Note: We don't include subscriptions or pool here to avoid recreation
+
+  // Function to unsubscribe from a specific subscription
+  const unsubscribe = useCallback((subscriptionId: string) => {
+    if (!pool) return;
+    
+    const subscription = subscriptions.get(subscriptionId);
+    if (subscription) {
+      try {
+        pool.close(subscription.relays, subscription.sub);
+        setSubscriptions(prev => {
+          const next = new Map(prev);
+          next.delete(subscriptionId);
+          return next;
+        });
+      } catch (err) {
+        console.error(`Error closing subscription ${subscriptionId}:`, err);
+      }
+    }
+  }, [pool, subscriptions]);
+
+  // Stream notes from relays
+  const streamNotes = useCallback((
+    pubkey?: string | null, 
+    limit: number = 10, 
+    onNotes?: (notes: NostrNote[], isEose: boolean) => void,
+    since?: number | null,
+    until?: number | null
+  ): string => {
+    if (!pool) return "";
+    
+    // Generate a unique subscription ID
+    const subscriptionId = `notes-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    
+    // Get read relays
+    const readRelays = relays.filter(r => r.read).map(r => r.url);
+    if (readRelays.length === 0) {
+      toast({
+        title: "No read relays configured",
+        description: "Please add at least one read relay",
+        variant: "destructive"
+      });
+      return "";
+    }
+    
+    // Define filter based on whether we want a specific user's notes or global feed
+    const filter = pubkey ? 
+      {
+        kinds: [NOSTR_KINDS.TEXT_NOTE], // Text notes only (kind 1)
+        authors: [pubkey],
+        limit: limit || 10,
+        ...(since !== undefined && since !== null && { since }),
+        ...(until !== undefined && until !== null && { until }),
+      } : 
+      {
+        kinds: [NOSTR_KINDS.TEXT_NOTE], // Text notes only (kind 1)
+        limit: limit || 50,
+        ...(since !== undefined && since !== null && { since }),
+        ...(until !== undefined && until !== null && { until }),
+      };
+
+    // Create subscription
+    try {
+      const sub = pool.sub(readRelays, [filter]);
+      
+      // Track received notes
+      const receivedNotes: NostrNote[] = [];
+      
+      // Handle incoming events
+      sub.on('event', (event: Event) => {
+        const note = parseNote(event);
+        receivedNotes.push(note);
+        
+        // Call the callback if provided
+        if (onNotes) {
+          onNotes([note], false);
+        }
+      });
+      
+      // Handle end of stored events
+      sub.on('eose', () => {
+        if (onNotes) {
+          onNotes(receivedNotes, true);
+        }
+      });
+      
+      // Store the subscription for cleanup
+      setSubscriptions(prev => {
+        const next = new Map(prev);
+        next.set(subscriptionId, { sub, relays: readRelays });
+        return next;
+      });
+      
+      return subscriptionId;
+    } catch (error) {
+      console.error('Error creating NOSTR subscription:', error);
+      toast({
+        title: "Subscription error",
+        description: "Failed to create subscription to NOSTR relays",
+        variant: "destructive"
+      });
+      return "";
+    }
+  }, [pool, relays]);
 
   const login = (pubkey?: string) => {
     try {
@@ -718,6 +855,9 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     removeRelay,
     updateRelay,
     saveRelaysToStorage,
+    // Add the new streaming methods
+    streamNotes,
+    unsubscribe,
   };
 
   return (
