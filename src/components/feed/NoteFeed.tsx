@@ -1,9 +1,11 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import NoteCard from "./NoteCard";
 import { NostrProfile } from "@/lib/nostr";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
 interface NoteFeedProps {
   pubkey?: string;
@@ -12,17 +14,22 @@ interface NoteFeedProps {
 export default function NoteFeed({ pubkey }: NoteFeedProps) {
   const { notes, fetchNotes, fetchProfile } = useNostr();
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [authorProfiles, setAuthorProfiles] = useState<Record<string, NostrProfile>>({});
 
-  useEffect(() => {
-    const loadNotes = async () => {
-      setIsLoading(true);
-      await fetchNotes(pubkey);
-      setIsLoading(false);
-    };
-
-    loadNotes();
+  const loadNotes = useCallback(async (refresh = false) => {
+    if (refresh) setIsRefreshing(true);
+    else setIsLoading(true);
+    
+    await fetchNotes(pubkey);
+    
+    if (refresh) setIsRefreshing(false);
+    else setIsLoading(false);
   }, [fetchNotes, pubkey]);
+
+  useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
 
   useEffect(() => {
     // Fetch profiles for all unique authors
@@ -44,6 +51,10 @@ export default function NoteFeed({ pubkey }: NoteFeedProps) {
       fetchProfiles();
     }
   }, [notes, fetchProfile]);
+
+  const handleRefresh = () => {
+    loadNotes(true);
+  };
 
   if (isLoading) {
     return (
@@ -70,24 +81,37 @@ export default function NoteFeed({ pubkey }: NoteFeedProps) {
     );
   }
 
-  if (notes.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <h3 className="text-lg font-medium">No notes found</h3>
-        <p className="text-muted-foreground">Be the first to post something!</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      {notes.map((note) => (
-        <NoteCard 
-          key={note.id} 
-          note={note} 
-          authorProfile={authorProfiles[note.pubkey]} 
-        />
-      ))}
+    <div>
+      <div className="mb-4 flex justify-end">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="text-xs flex items-center gap-1"
+        >
+          <RefreshCw className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`} />
+          {isRefreshing ? "Refreshing..." : "Refresh Notes"}
+        </Button>
+      </div>
+
+      {notes.length === 0 ? (
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium">No notes found</h3>
+          <p className="text-muted-foreground">Be the first to post something!</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {notes.map((note) => (
+            <NoteCard 
+              key={note.id} 
+              note={note} 
+              authorProfile={authorProfiles[note.pubkey]} 
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
