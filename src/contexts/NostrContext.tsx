@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SimplePool, Event, getEventHash, signEvent, getPublicKey } from 'nostr-tools';
+import { SimplePool, Event, getEventHash, signEvent, getPublicKey as nostrGetPublicKey } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
 import {
   DEFAULT_RELAYS,
@@ -201,7 +201,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const loginWithPrivateKey = async (inputPrivateKey: string) => {
     try {
       // Get public key from private key
-      const derivedPublicKey = getPublicKey(inputPrivateKey);
+      const derivedPublicKey = nostrGetPublicKey(inputPrivateKey);
       
       // Save keys
       saveKeys(inputPrivateKey);
@@ -711,9 +711,9 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 };
 
 // Helper function to get public key from private key
-function getPublicKey(privateKey: string): string {
+function getPublicKeyFromPrivate(privateKey: string): string {
   try {
-    return getPublicKey(privateKey);
+    return nostrGetPublicKey(privateKey);
   } catch (error) {
     console.error('Error deriving public key:', error);
     throw new Error('Invalid private key');
