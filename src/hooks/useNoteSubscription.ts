@@ -12,6 +12,12 @@ interface NoteSubscriptionResult {
   loadMoreRef: React.RefObject<HTMLDivElement>;
 }
 
+// Define a proper return type for subscribeToNotes
+interface SubscriptionResult {
+  subId: string;
+  hasMore: boolean;
+}
+
 export default function useNoteSubscription(
   pubkey?: string,
   followingFeed?: boolean
@@ -124,7 +130,7 @@ export default function useNoteSubscription(
     try {
       if (subscriptionIdRef.current) {
         // Request more historical notes
-        const safeResult = await subscribeToNotes(
+        const result = await subscribeToNotes(
           pubkey, 
           handleNewNotes, 
           notesPerPage, 
@@ -132,21 +138,21 @@ export default function useNoteSubscription(
         );
         
         // Handle null result - no more notes available
-        if (safeResult === null) {
+        if (result === null) {
           setHasMore(false);
           setPage(nextPage);
           return;
         }
         
-        // Now we know safeResult is not null
-        // Check if safeResult has hasMore property
-        if (safeResult && 'hasMore' in safeResult) {
-          setHasMore(safeResult.hasMore);
+        // Now we know result is not null
+        // Check if result is an object with hasMore property
+        if (typeof result === 'object' && result !== null && 'hasMore' in result) {
+          setHasMore(Boolean(result.hasMore));
         }
         
-        // Check if safeResult has subId property
-        if (safeResult && 'subId' in safeResult) {
-          subscriptionIdRef.current = safeResult.subId;
+        // Check if result is an object with subId property
+        if (typeof result === 'object' && result !== null && 'subId' in result) {
+          subscriptionIdRef.current = String(result.subId);
         }
         
         setPage(nextPage);
