@@ -5,10 +5,14 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Camera, Image, Smile, Video } from "lucide-react";
+import { Image, Smile } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
-export default function CreateNote() {
+interface CreateNoteProps {
+  onNoteCreated?: () => void;
+}
+
+export default function CreateNote({ onNoteCreated }: CreateNoteProps) {
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { publishNote, profile } = useNostr();
@@ -33,6 +37,11 @@ export default function CreateNote() {
         title: "Note published",
         description: "Your note has been published successfully",
       });
+      
+      // Trigger the callback to refresh the feed
+      if (onNoteCreated) {
+        onNoteCreated();
+      }
     } else {
       toast({
         title: "Failed to publish note",

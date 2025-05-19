@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { SimplePool, Event, getEventHash, signEvent, Sub } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
 import {
   DEFAULT_RELAYS,
@@ -43,6 +43,19 @@ interface NostrContextType {
   removeRelay: (url: string) => void;
   updateRelay: (url: string, read: boolean, write: boolean) => void;
   saveRelaysToStorage: () => void;
+  subscribeToNotes: (
+    pubkey?: string, 
+    onNotesReceived?: (notes: NostrNote[]) => void,
+    limit?: number,
+    since?: number
+  ) => string;
+  unsubscribeFromNotes: (subscriptionId: string) => void;
+}
+
+// Interface for tracking subscriptions
+interface SubscriptionInfo {
+  sub: Sub;
+  filter: any;
 }
 
 const NostrContext = createContext<NostrContextType | null>(null);
@@ -65,6 +78,9 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [notes, setNotes] = useState<NostrNote[]>([]);
   const [relays, setRelays] = useState<NostrRelayConfig[]>(DEFAULT_RELAYS);
   const [pool, setPool] = useState<SimplePool | null>(null);
+  
+  // Map to track active subscriptions
+  const [activeSubscriptions, setActiveSubscriptions] = useState<Map<string, SubscriptionInfo>>(new Map());
 
   // Initialize NOSTR connection
   useEffect(() => {
@@ -95,9 +111,10 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setNpub(userProfile.npub || null);
           }
 
-          // Fetch user's notes
-          const userNotes = await fetchNotes(savedPublicKey);
-          setNotes(userNotes);
+          // Set up a streaming subscription for user's notes
+          subscribeToNotes(savedPublicKey, (receivedNotes) => {
+            setNotes(receivedNotes);
+          });
         }
       } catch (error) {
         console.error('Error initializing NOSTR:', error);
@@ -113,13 +130,23 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     initNostr();
 
-    // Clean up
+    // Clean up all subscriptions on unmount
     return () => {
-      if (pool) pool.close(relays.map(relay => relay.url));
+      if (pool) {
+        // Close all relay connections
+        pool.close(relays.map(relay => relay.url));
+        
+        // Make sure to unsubscribe from all subscriptions
+        activeSubscriptions.forEach((subInfo) => {
+          if (subInfo.sub) {
+            subInfo.sub.unsub();
+          }
+        });
+      }
     };
   }, []);
 
-  const login = (pubkey?: string) => {
+  const login = useCallback((pubkey?: string) => {
     try {
       // If pubkey is provided, use extension login
       if (pubkey) {
@@ -135,15 +162,16 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           description: 'Successfully connected to your NOSTR extension',
         });
 
-        // Fetch profile and notes
+        // Fetch profile and set up streaming subscription for notes
         fetchProfile(pubkey).then(userProfile => {
           if (userProfile) {
             setProfile(userProfile);
           }
         });
 
-        fetchNotes(pubkey).then(userNotes => {
-          setNotes(userNotes);
+        // Set up subscription for user's notes
+        subscribeToNotes(pubkey, (receivedNotes) => {
+          setNotes(receivedNotes);
         });
         
         return;
@@ -170,7 +198,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         description: 'Welcome back to NOSTR',
       });
 
-      // Fetch profile and notes
+      // Fetch profile and set up streaming subscription for notes
       fetchProfile(savedPublicKey).then(userProfile => {
         if (userProfile) {
           setProfile(userProfile);
@@ -178,8 +206,9 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       });
 
-      fetchNotes(savedPublicKey).then(userNotes => {
-        setNotes(userNotes);
+      // Set up subscription for user's notes
+      subscribeToNotes(savedPublicKey, (receivedNotes) => {
+        setNotes(receivedNotes);
       });
     } catch (error) {
       console.error('Error logging in:', error);
@@ -189,7 +218,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         variant: 'destructive',
       });
     }
-  };
+  }, []);
 
   const loginWithPrivateKey = (inputPrivateKey: string) => {
     try {
@@ -298,7 +327,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return {
         pubkey: pubkey,
-        npub: null,
+        npub: hexToNpub(pubkey),
       };
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -337,6 +366,112 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return [];
     }
   };
+
+  // Subscribe to notes with real-time updates
+  const subscribeToNotes = useCallback((
+    pubkey?: string, 
+    onNotesReceived?: (notes: NostrNote[]) => void,
+    limit: number = 20,
+    since?: number
+  ): string => {
+    if (!pool) return "";
+
+    // Create a unique subscription ID
+    const subscriptionId = `sub_${Math.random().toString(36).substring(2, 15)}`;
+
+    // Define filter based on whether we want a specific user's notes or global feed
+    const filter: any = pubkey ? 
+      {
+        kinds: [1], // Text notes only
+        authors: [pubkey],
+        limit: limit,
+      } : 
+      {
+        kinds: [1], // Text notes only
+        limit: limit,
+      };
+
+    // Optional: add since parameter for pagination
+    if (since) {
+      filter.since = since;
+    }
+
+    // Create event buffer to collect events before processing
+    let eventBuffer: Event[] = [];
+    let processTimer: NodeJS.Timeout | null = null;
+    
+    // Function to process buffered events
+    const processEvents = () => {
+      if (eventBuffer.length === 0) return;
+      
+      // Convert events to notes
+      const newNotes = eventBuffer
+        .map(event => parseNote(event))
+        .sort((a, b) => b.created_at - a.created_at);
+      
+      // Clear buffer
+      eventBuffer = [];
+      
+      // Call the callback if provided
+      if (onNotesReceived) {
+        onNotesReceived(newNotes);
+      }
+    };
+
+    try {
+      // Subscribe to relays
+      const sub = pool.sub(
+        relays.filter(r => r.read).map(r => r.url),
+        [filter]
+      );
+
+      // Handle incoming events
+      sub.on('event', (event: Event) => {
+        // Buffer the event
+        eventBuffer.push(event);
+
+        // Process events after a small delay to batch them
+        if (processTimer) {
+          clearTimeout(processTimer);
+        }
+        
+        processTimer = setTimeout(processEvents, 200);
+      });
+
+      // Handle subscription end (relay provided all historical events up to now)
+      sub.on('eose', () => {
+        // Process any remaining events
+        processEvents();
+      });
+
+      // Store the subscription
+      setActiveSubscriptions(prev => {
+        const newMap = new Map(prev);
+        newMap.set(subscriptionId, { sub, filter });
+        return newMap;
+      });
+
+      return subscriptionId;
+    } catch (error) {
+      console.error('Error subscribing to notes:', error);
+      return "";
+    }
+  }, [pool, relays]);
+
+  // Unsubscribe from a specific subscription
+  const unsubscribeFromNotes = useCallback((subscriptionId: string): void => {
+    setActiveSubscriptions(prev => {
+      const newMap = new Map(prev);
+      const subscription = newMap.get(subscriptionId);
+      
+      if (subscription) {
+        subscription.sub.unsub();
+        newMap.delete(subscriptionId);
+      }
+      
+      return newMap;
+    });
+  }, []);
 
   const fetchSingleNote = async (id: string): Promise<NostrNote | null> => {
     if (!pool) return null;
@@ -529,6 +664,10 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               .map(relay => pool.publish([relay.url], signedEvent))
           );
           
+          // Add this note to the local state as well
+          const newNote = parseNote(signedEvent);
+          setNotes(prevNotes => [newNote, ...prevNotes]);
+          
           // Return the note ID
           return signedEvent.id;
         } catch (err) {
@@ -550,6 +689,10 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             .filter(relay => relay.write)
             .map(relay => pool.publish([relay.url], event))
         );
+        
+        // Add this note to the local state as well
+        const newNote = parseNote(event);
+        setNotes(prevNotes => [newNote, ...prevNotes]);
         
         // Return the note ID
         return event.id;
@@ -718,6 +861,8 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     removeRelay,
     updateRelay,
     saveRelaysToStorage,
+    subscribeToNotes,
+    unsubscribeFromNotes,
   };
 
   return (

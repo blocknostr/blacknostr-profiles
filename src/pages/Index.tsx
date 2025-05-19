@@ -6,15 +6,23 @@ import NoteFeed from "@/components/feed/NoteFeed";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CreateNote from "@/components/feed/CreateNote";
 
 const Index = () => {
-  const { isAuthenticated, isLoading, fetchNotes, publicKey } = useNostr();
+  const { isAuthenticated, isLoading, publicKey } = useNostr();
   const [isCreateNoteOpen, setIsCreateNoteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("global");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Create ref to store the current subscription ID
+  const noteFeedRefreshFn = useRef<() => void>(() => {});
+  
+  // Store the refresh function from NoteFeed
+  const setNoteFeedRefresh = (refreshFn: () => void) => {
+    noteFeedRefreshFn.current = refreshFn;
+  };
 
   if (isLoading) {
     return (
@@ -41,12 +49,20 @@ const Index = () => {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchNotes(activeTab === "following" ? publicKey : undefined);
+    // Use the ref function to refresh
+    noteFeedRefreshFn.current();
     setIsRefreshing(false);
   };
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
+  };
+  
+  // Handle note creation success
+  const handleNoteCreated = () => {
+    setIsCreateNoteOpen(false);
+    // Refresh the feed after posting
+    noteFeedRefreshFn.current();
   };
 
   return (
@@ -99,7 +115,7 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Create new note</DialogTitle>
           </DialogHeader>
-          <CreateNote />
+          <CreateNote onNoteCreated={handleNoteCreated} />
         </DialogContent>
       </Dialog>
     </MainLayout>

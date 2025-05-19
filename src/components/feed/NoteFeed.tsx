@@ -1,9 +1,11 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import NoteCard from "./NoteCard";
-import { NostrProfile } from "@/lib/nostr";
+import { NostrProfile, NostrNote } from "@/lib/nostr";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
 interface NoteFeedProps {
   pubkey?: string;
@@ -11,40 +13,170 @@ interface NoteFeedProps {
 }
 
 export default function NoteFeed({ pubkey, followingFeed }: NoteFeedProps) {
-  const { notes, fetchNotes, fetchProfile } = useNostr();
+  const { notes, fetchNotes, fetchProfile, subscribeToNotes, unsubscribeFromNotes } = useNostr();
   const [isLoading, setIsLoading] = useState(true);
+  const [feedNotes, setFeedNotes] = useState<NostrNote[]>([]);
   const [authorProfiles, setAuthorProfiles] = useState<Record<string, NostrProfile>>({});
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const subscriptionIdRef = useRef<string | null>(null);
+  const notesPerPage = 15;
 
+  // Handle new notes coming from subscription
+  const handleNewNotes = useCallback((newNotes: NostrNote[]) => {
+    setFeedNotes(currentNotes => {
+      // Combine new and existing notes, removing duplicates by ID
+      const notesMap = new Map<string, NostrNote>();
+      
+      // Add current notes to map
+      currentNotes.forEach(note => notesMap.set(note.id, note));
+      
+      // Add or update with new notes
+      newNotes.forEach(note => {
+        // Only add if it doesn't exist or if it's newer version of existing note
+        if (!notesMap.has(note.id) || note.created_at > (notesMap.get(note.id)?.created_at || 0)) {
+          notesMap.set(note.id, note);
+        }
+      });
+      
+      // Convert map back to array and sort by timestamp (newest first)
+      return Array.from(notesMap.values())
+        .sort((a, b) => b.created_at - a.created_at);
+    });
+  }, []);
+
+  // Initialize feed and subscription
   useEffect(() => {
-    const loadNotes = async () => {
+    const loadInitialNotes = async () => {
       setIsLoading(true);
-      await fetchNotes(pubkey);
+      setPage(1);
+      
+      // Clear existing notes when feed type changes
+      setFeedNotes([]);
+      
+      // Start a subscription for real-time updates
+      if (subscriptionIdRef.current) {
+        unsubscribeFromNotes(subscriptionIdRef.current);
+        subscriptionIdRef.current = null;
+      }
+      
+      // Subscribe to notes with a limit
+      const subId = subscribeToNotes(pubkey, handleNewNotes, notesPerPage);
+      subscriptionIdRef.current = subId;
+      
       setIsLoading(false);
     };
 
-    loadNotes();
-  }, [fetchNotes, pubkey]);
+    loadInitialNotes();
+    
+    // Cleanup subscription on unmount or when feed type changes
+    return () => {
+      if (subscriptionIdRef.current) {
+        unsubscribeFromNotes(subscriptionIdRef.current);
+        subscriptionIdRef.current = null;
+      }
+    };
+  }, [subscribeToNotes, unsubscribeFromNotes, pubkey, handleNewNotes]);
 
+  // Fetch profiles for all note authors
   useEffect(() => {
-    // Fetch profiles for all unique authors
     const fetchProfiles = async () => {
-      const uniqueAuthors = [...new Set(notes.map(note => note.pubkey))];
-      const profiles: Record<string, NostrProfile> = {};
-
-      for (const pubkey of uniqueAuthors) {
+      if (feedNotes.length === 0) return;
+      
+      const uniqueAuthors = [...new Set(feedNotes.map(note => note.pubkey))];
+      const profiles: Record<string, NostrProfile> = { ...authorProfiles };
+      
+      const newAuthors = uniqueAuthors.filter(pubkey => !profiles[pubkey]);
+      
+      for (const pubkey of newAuthors) {
         const profile = await fetchProfile(pubkey);
         if (profile) {
           profiles[pubkey] = profile;
         }
       }
-
+      
       setAuthorProfiles(profiles);
     };
 
-    if (notes.length > 0) {
-      fetchProfiles();
+    fetchProfiles();
+  }, [feedNotes, fetchProfile, authorProfiles]);
+
+  // Set up intersection observer for infinite scrolling
+  useEffect(() => {
+    if (isLoading) return;
+    
+    // Disconnect previous observer
+    if (observerRef.current) {
+      observerRef.current.disconnect();
     }
-  }, [notes, fetchProfile]);
+    
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          loadMoreNotes();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    observerRef.current = observer;
+    
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+    
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [isLoading, hasMore, isLoadingMore]);
+
+  // Load more notes when scrolling
+  const loadMoreNotes = async () => {
+    if (isLoadingMore || !hasMore) return;
+    
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    
+    try {
+      if (subscriptionIdRef.current) {
+        // Request more historical notes
+        const hasMoreNotes = await subscribeToNotes(
+          pubkey, 
+          handleNewNotes, 
+          notesPerPage, 
+          nextPage * notesPerPage
+        );
+        
+        setHasMore(hasMoreNotes);
+        setPage(nextPage);
+      }
+    } catch (error) {
+      console.error("Error loading more notes:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Manual refresh handler
+  const handleRefresh = async () => {
+    if (subscriptionIdRef.current) {
+      unsubscribeFromNotes(subscriptionIdRef.current);
+    }
+    
+    setFeedNotes([]);
+    setIsLoading(true);
+    
+    // Start a new subscription
+    const subId = subscribeToNotes(pubkey, handleNewNotes, notesPerPage);
+    subscriptionIdRef.current = subId;
+    
+    setIsLoading(false);
+  };
 
   if (isLoading) {
     return (
@@ -72,34 +204,74 @@ export default function NoteFeed({ pubkey, followingFeed }: NoteFeedProps) {
   }
 
   // Show empty state for following feed
-  if (followingFeed && notes.length === 0) {
+  if (followingFeed && feedNotes.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <p>Your following feed will appear here.</p>
         <p>Follow some users to see their posts!</p>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh}
+          className="mt-4 flex items-center gap-1"
+        >
+          <RefreshCw className="h-4 w-4" />
+          <span>Refresh</span>
+        </Button>
       </div>
     );
   }
 
   // Show empty state for global feed
-  if (!followingFeed && notes.length === 0) {
+  if (!followingFeed && feedNotes.length === 0) {
     return (
       <div className="text-center py-12">
         <h3 className="text-lg font-medium">No notes found</h3>
         <p className="text-muted-foreground">Be the first to post something!</p>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh}
+          className="mt-4 flex items-center gap-1"
+        >
+          <RefreshCw className="h-4 w-4" />
+          <span>Refresh</span>
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {notes.map((note) => (
+      {feedNotes.map((note) => (
         <NoteCard 
           key={note.id} 
           note={note} 
           authorProfile={authorProfiles[note.pubkey]} 
         />
       ))}
+      
+      {/* Load more indicator */}
+      {hasMore && (
+        <div 
+          ref={loadMoreRef} 
+          className="py-4 text-center"
+        >
+          {isLoadingMore ? (
+            <div className="space-y-4">
+              <Skeleton className="h-24 w-full rounded-lg" />
+              <div className="flex justify-between">
+                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-6 w-16" />
+              </div>
+            </div>
+          ) : (
+            <span className="text-sm text-muted-foreground">Loading more notes...</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
