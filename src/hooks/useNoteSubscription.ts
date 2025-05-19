@@ -35,6 +35,8 @@ export default function useNoteSubscription(
 
   // Handle new notes coming from subscription
   const handleNewNotes = useCallback((newNotes: NostrNote[]) => {
+    if (!newNotes || newNotes.length === 0) return;
+    
     setFeedNotes(currentNotes => {
       // Combine new and existing notes, removing duplicates by ID
       const notesMap = new Map<string, NostrNote>();
@@ -61,21 +63,30 @@ export default function useNoteSubscription(
     const loadInitialNotes = async () => {
       setIsLoading(true);
       setPage(1);
+      setHasMore(true); // Reset hasMore on feed change
       
       // Clear existing notes when feed type changes
       setFeedNotes([]);
       
-      // Start a subscription for real-time updates
+      // Cleanup existing subscription if any
       if (subscriptionIdRef.current) {
         unsubscribeFromNotes(subscriptionIdRef.current);
         subscriptionIdRef.current = null;
       }
       
-      // Subscribe to notes with a limit
-      const subId = subscribeToNotes(pubkey, handleNewNotes, notesPerPage);
-      subscriptionIdRef.current = subId;
-      
-      setIsLoading(false);
+      try {
+        // Subscribe to notes with a limit
+        const subId = subscribeToNotes(pubkey, handleNewNotes, notesPerPage);
+        
+        // Only update the ref if we got a valid subscription ID
+        if (subId) {
+          subscriptionIdRef.current = subId;
+        }
+      } catch (error) {
+        console.error("Error subscribing to notes:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadInitialNotes();
@@ -144,16 +155,18 @@ export default function useNoteSubscription(
           return;
         }
         
-        // Now we know result is not null
+        // TypeScript null safety - we've already checked above that result is not null
         // Check if result is an object with hasMore property
-        if (result !== null && typeof result === 'object' && 'hasMore' in result) {
-          setHasMore(Boolean((result as SubscriptionResult).hasMore));
-        }
-        
-        // Check if result is an object with subId property
-        if (result !== null && typeof result === 'object' && 'subId' in result) {
-          subscriptionIdRef.current = String((result as SubscriptionResult).subId);
-        } else if (result !== null && typeof result === 'string') {
+        if (typeof result === 'object' && 'hasMore' in result) {
+          // Now TypeScript knows result is an object with hasMore
+          const typedResult = result as SubscriptionResult;
+          setHasMore(Boolean(typedResult.hasMore));
+          
+          // Update subscription ID if available
+          if ('subId' in typedResult) {
+            subscriptionIdRef.current = String(typedResult.subId);
+          }
+        } else if (typeof result === 'string') {
           // If result is a string, it's the subscription ID directly
           subscriptionIdRef.current = result;
         }
@@ -171,18 +184,28 @@ export default function useNoteSubscription(
 
   // Manual refresh handler
   const handleRefresh = async () => {
+    // Reset state and start over
     if (subscriptionIdRef.current) {
       unsubscribeFromNotes(subscriptionIdRef.current);
+      subscriptionIdRef.current = null;
     }
     
     setFeedNotes([]);
     setIsLoading(true);
+    setPage(1);
+    setHasMore(true);
     
-    // Start a new subscription
-    const subId = subscribeToNotes(pubkey, handleNewNotes, notesPerPage);
-    subscriptionIdRef.current = subId;
-    
-    setIsLoading(false);
+    try {
+      // Start a new subscription
+      const subId = subscribeToNotes(pubkey, handleNewNotes, notesPerPage);
+      if (subId) {
+        subscriptionIdRef.current = subId;
+      }
+    } catch (error) {
+      console.error("Error refreshing notes:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return {
