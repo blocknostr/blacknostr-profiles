@@ -8,7 +8,6 @@ import { NostrProvider } from "@/contexts/NostrContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 
 import Index from "./pages/Index";
-import Home2 from "./pages/Home2"; // Import the new Home2 page
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import Wallets from "./pages/Wallets";
@@ -35,7 +34,6 @@ const App = () => {
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Index />} />
-                <Route path="/home2" element={<Home2 />} /> {/* Add the new Home2 route */}
                 <Route path="/wallets" element={<Wallets />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/messages" element={<Messages />} />
