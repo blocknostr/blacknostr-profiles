@@ -145,14 +145,22 @@ export default function NoteFeed({ pubkey, followingFeed }: NoteFeedProps) {
     try {
       if (subscriptionIdRef.current) {
         // Request more historical notes
-        const hasMoreNotes = await subscribeToNotes(
+        const result = await subscribeToNotes(
           pubkey, 
           handleNewNotes, 
           notesPerPage, 
           nextPage * notesPerPage
         );
         
-        setHasMore(hasMoreNotes);
+        // This is the fix - checking if result contains hasMore boolean property
+        if (typeof result === 'object' && 'hasMore' in result) {
+          setHasMore(result.hasMore);
+          // If the object also contains a subscription ID, update it
+          if ('subId' in result) {
+            subscriptionIdRef.current = result.subId;
+          }
+        }
+        
         setPage(nextPage);
       }
     } catch (error) {
