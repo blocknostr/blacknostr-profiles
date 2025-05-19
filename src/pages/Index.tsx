@@ -6,15 +6,18 @@ import NoteFeed from "@/components/feed/NoteFeed";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CreateNote from "@/components/feed/CreateNote";
+import { Sub } from "nostr-tools";
 
 const Index = () => {
-  const { isAuthenticated, isLoading, fetchNotes, publicKey } = useNostr();
+  const { isAuthenticated, isLoading, publicKey } = useNostr();
   const [isCreateNoteOpen, setIsCreateNoteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("global");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const globalSubscriptionRef = useRef<Sub | null>(null);
+  const followingSubscriptionRef = useRef<Sub | null>(null);
 
   if (isLoading) {
     return (
@@ -41,8 +44,17 @@ const Index = () => {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchNotes(activeTab === "following" ? publicKey : undefined);
-    setIsRefreshing(false);
+    
+    // Simulating refresh by forcing component remount
+    setActiveTab(prev => {
+      const current = prev;
+      setTimeout(() => setActiveTab(current), 100);
+      return "refreshing";
+    });
+    
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 1500);
   };
 
   const handleTabChange = (value: string) => {
@@ -77,7 +89,7 @@ const Index = () => {
         </div>
         
         <Tabs 
-          defaultValue="global" 
+          value={activeTab} 
           className="w-full" 
           onValueChange={handleTabChange}
         >
@@ -86,10 +98,15 @@ const Index = () => {
             <TabsTrigger value="following" className="flex-1">Following</TabsTrigger>
           </TabsList>
           <TabsContent value="global" className="mt-4">
-            <NoteFeed />
+            {activeTab === "global" && <NoteFeed key="global-feed" />}
           </TabsContent>
           <TabsContent value="following" className="mt-4">
-            <NoteFeed pubkey={publicKey || undefined} followingFeed={true} />
+            {activeTab === "following" && <NoteFeed key="following-feed" pubkey={publicKey || undefined} followingFeed={true} />}
+          </TabsContent>
+          <TabsContent value="refreshing" className="mt-4">
+            <div className="flex justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
