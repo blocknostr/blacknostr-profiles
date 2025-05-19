@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Wallet, FilePlus, Trash, Circle, TrendingUp } from "lucide-react";
+import { Wallet, FilePlus, Trash, Circle, TrendingUp, DatabaseBackup, LocalStorage, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useNostr } from "@/contexts/NostrContext";
 import { toast } from "@/components/ui/use-toast";
@@ -71,25 +71,47 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
           try {
             // Get real balance data for Alephium
             const balanceData = await alephiumAPI.getAddressBalance(wallet.address);
-            const balance = balanceData.balance;
+            const balanceInALPH = parseFloat(balanceData.balanceHint.split(' ')[0]);
             
             // Try to get token data
             let tokens: TokenData[] = [];
             try {
-              const addressTokens = await alephiumAPI.getAddressTokens(wallet.address);
-              
-              tokens = addressTokens.map(token => {
-                // Convert token amount to number with correct decimals
-                const tokenBalance = parseFloat(token.formattedAmount);
-                // Default price is 0.01 but can be customized per token
-                const tokenPrice = token.tokenPrice || 0.01;
-                
-                return {
-                  symbol: token.symbol,
-                  balance: tokenBalance,
-                  value: tokenBalance * tokenPrice
-                };
-              });
+              const tokenBalances = balanceData.tokenBalances || [];
+              if (tokenBalances.length > 0) {
+                for (const tokenBalance of tokenBalances) {
+                  try {
+                    // Try to fetch token metadata
+                    const tokenId = tokenBalance.id;
+                    const tokenAmount = parseInt(tokenBalance.amount);
+                    
+                    // Fetch token details if possible
+                    const tokenInfo = await alephiumAPI.getTokenInfo(tokenId);
+                    
+                    // If we got token info, calculate the formatted amount based on decimals
+                    let formattedAmount = tokenAmount;
+                    let symbol = tokenId.substring(0, 6); // Default symbol is first 6 chars of ID
+                    
+                    if (tokenInfo) {
+                      symbol = tokenInfo.symbol || symbol;
+                      // Format amount based on decimals if available
+                      if (tokenInfo.decimals) {
+                        formattedAmount = tokenAmount / Math.pow(10, tokenInfo.decimals);
+                      }
+                    }
+                    
+                    // Default price - this would ideally come from a price API
+                    const tokenPrice = 0.01;
+                    
+                    tokens.push({
+                      symbol,
+                      balance: formattedAmount,
+                      value: formattedAmount * tokenPrice
+                    });
+                  } catch (err) {
+                    console.error("Error processing token:", err);
+                  }
+                }
+              }
             } catch (tokenErr) {
               console.error("Could not fetch token data:", tokenErr);
               // Use existing tokens or generate some
@@ -98,7 +120,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             
             const updatedWallet = {
               ...wallet,
-              balance,
+              balance: balanceInALPH,
               tokens,
               lastUpdated: now
             };
@@ -106,7 +128,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             walletsWithData.push(updatedWallet);
             
             // Add wallet balance to total
-            const walletValue = balance + tokens.reduce((sum, token) => sum + token.value, 0);
+            const walletValue = balanceInALPH + tokens.reduce((sum, token) => sum + token.value, 0);
             total += walletValue;
           } catch (error) {
             console.error("Error loading wallet data:", error);

@@ -1,4 +1,3 @@
-
 import { NodeProvider, ExplorerProvider } from '@alephium/web3';
 
 // Initialize the node provider with the mainnet node
@@ -527,7 +526,28 @@ export const getNFTCollections = async (limit = 10): Promise<any[]> => {
   }
 };
 
-export default {
+// Added a function to get token information
+const getTokenInfo = async (tokenId: string) => {
+  try {
+    const response = await fetch(`https://explorer.alephium.org/api/tokens/${tokenId}`);
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        symbol: data.symbol || tokenId.substring(0, 6),
+        decimals: data.decimals || 0,
+        totalSupply: data.totalSupply || "0",
+        name: data.name || "Unknown Token"
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching token info:", error);
+    return null;
+  }
+};
+
+// Add the token information function to the exported object
+const alephiumAPI = {
   nodeProvider,
   explorerProvider,
   getAddressBalance,
@@ -537,5 +557,8 @@ export default {
   getAddressNFTs,
   fetchNetworkStats,
   getTokenMetadata,
-  getNFTCollections
+  getNFTCollections,
+  getTokenInfo,
 };
+
+export default alephiumAPI;

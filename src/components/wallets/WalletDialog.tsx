@@ -2,7 +2,7 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, Wallet } from 'lucide-react';
+import { Plus, Trash2, Wallet, LocalStorage } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
@@ -22,20 +22,42 @@ const WalletDialog = ({ ecosystem, children }: WalletDialogProps) => {
   const MAX_WALLETS = 5;
   const [open, setOpen] = useState(false);
 
-  // Load wallets from localStorage on component mount
+  // Load wallets from localStorage when component mounts or dialog opens
   useEffect(() => {
-    const savedWallets = localStorage.getItem(`${ecosystem}_wallets`);
-    if (savedWallets) {
-      setWallets(JSON.parse(savedWallets));
-    } else {
-      setWallets([]);
+    if (open) {
+      loadWallets();
     }
   }, [ecosystem, open]);
 
-  // Save wallets to localStorage when they change
-  useEffect(() => {
-    localStorage.setItem(`${ecosystem}_wallets`, JSON.stringify(wallets));
-  }, [wallets, ecosystem]);
+  // Load wallets from localStorage
+  const loadWallets = () => {
+    try {
+      const savedWallets = localStorage.getItem(`${ecosystem}_wallets`);
+      if (savedWallets) {
+        setWallets(JSON.parse(savedWallets));
+      } else {
+        setWallets([]);
+      }
+    } catch (error) {
+      console.error("Error loading wallets from localStorage:", error);
+      setWallets([]);
+    }
+  };
+
+  // Save wallets to localStorage
+  const saveWallets = (walletsToSave: WalletAddress[]) => {
+    try {
+      localStorage.setItem(`${ecosystem}_wallets`, JSON.stringify(walletsToSave));
+      console.log(`Saved ${walletsToSave.length} wallets to localStorage for ${ecosystem}`);
+    } catch (error) {
+      console.error("Error saving wallets to localStorage:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save wallet data",
+        variant: "destructive",
+      });
+    }
+  };
 
   const addWallet = () => {
     if (!newAddress.trim()) {
@@ -100,7 +122,14 @@ const WalletDialog = ({ ecosystem, children }: WalletDialogProps) => {
       return;
     }
 
-    setWallets([...wallets, { id: Date.now().toString(), address: newAddress }]);
+    const newWallet = { 
+      id: Date.now().toString(), 
+      address: newAddress 
+    };
+    
+    const updatedWallets = [...wallets, newWallet];
+    setWallets(updatedWallets);
+    saveWallets(updatedWallets);
     setNewAddress('');
     
     toast({
@@ -110,7 +139,10 @@ const WalletDialog = ({ ecosystem, children }: WalletDialogProps) => {
   };
 
   const removeWallet = (id: string) => {
-    setWallets(wallets.filter(wallet => wallet.id !== id));
+    const updatedWallets = wallets.filter(wallet => wallet.id !== id);
+    setWallets(updatedWallets);
+    saveWallets(updatedWallets);
+    
     toast({
       title: "Wallet Removed",
       description: "The wallet address has been removed from your portfolio",
@@ -122,7 +154,10 @@ const WalletDialog = ({ ecosystem, children }: WalletDialogProps) => {
       {children}
       <DialogContent className="dark:bg-nostr-cardBg dark:border-white/20 sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Manage Wallets</DialogTitle>
+          <DialogTitle className="flex items-center">
+            <LocalStorage className="h-5 w-5 mr-2 text-nostr-blue" />
+            Manage Wallets
+          </DialogTitle>
           <DialogDescription>
             Add or remove wallet addresses to track in your portfolio ({wallets.length}/{MAX_WALLETS})
           </DialogDescription>
