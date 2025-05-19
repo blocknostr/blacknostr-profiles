@@ -4,7 +4,7 @@ import { useNostr } from "@/contexts/NostrContext";
 import NoteCard from "./NoteCard";
 import { NostrProfile } from "@/lib/nostr";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ReloadIcon } from "@radix-ui/react-icons";
+import { RefreshCw } from "lucide-react"; // Using lucide-react instead of @radix-ui/react-icons
 import { Button } from "@/components/ui/button";
 
 interface NoteFeedProps {
@@ -111,12 +111,12 @@ export default function NoteFeed({ pubkey, following = false }: NoteFeedProps) {
         >
           {isRefreshing ? (
             <>
-              <ReloadIcon className="h-4 w-4 mr-2 animate-spin" />
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
               Refreshing...
             </>
           ) : (
             <>
-              <ReloadIcon className="h-4 w-4 mr-2" />
+              <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </>
           )}
@@ -137,12 +137,12 @@ export default function NoteFeed({ pubkey, following = false }: NoteFeedProps) {
         >
           {isRefreshing ? (
             <>
-              <ReloadIcon className="h-4 w-4 mr-2 animate-spin" />
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
               Refreshing...
             </>
           ) : (
             <>
-              <ReloadIcon className="h-4 w-4 mr-2" />
+              <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </>
           )}
@@ -163,12 +163,12 @@ export default function NoteFeed({ pubkey, following = false }: NoteFeedProps) {
         >
           {isRefreshing ? (
             <>
-              <ReloadIcon className="h-3 w-3 mr-1 animate-spin" />
+              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
               Refreshing...
             </>
           ) : (
             <>
-              <ReloadIcon className="h-3 w-3 mr-1" />
+              <RefreshCw className="h-3 w-3 mr-1" />
               Refresh
             </>
           )}

@@ -27,8 +27,18 @@ const Index = () => {
       
       for (const relay of relays) {
         try {
-          const relayInfo = await pool.getRelayInfo(relay.url);
-          info[relay.url] = relayInfo;
+          // Use fetch directly to get relay information according to NIP-11
+          const response = await fetch(relay.url.replace('wss://', 'https://'), {
+            headers: { 'Accept': 'application/nostr+json' }
+          });
+          
+          if (response.ok) {
+            const relayInfo = await response.json();
+            info[relay.url] = relayInfo;
+          } else {
+            console.error(`Failed to fetch info for relay ${relay.url}: HTTP status ${response.status}`);
+            info[relay.url] = { error: `HTTP status ${response.status}` };
+          }
         } catch (error) {
           console.error(`Failed to fetch info for relay ${relay.url}:`, error);
           info[relay.url] = { error: "Failed to fetch relay info" };
