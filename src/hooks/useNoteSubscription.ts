@@ -160,10 +160,11 @@ export default function useNoteSubscription(
         if (typeof result === 'object' && 'hasMore' in result) {
           // Now TypeScript knows result is an object with hasMore
           const typedResult = result as SubscriptionResult;
-          setHasMore(Boolean(typedResult.hasMore));
+          // Make sure typedResult.hasMore isn't null before using Boolean()
+          setHasMore(typedResult.hasMore !== null ? Boolean(typedResult.hasMore) : false);
           
           // Update subscription ID if available
-          if ('subId' in typedResult) {
+          if ('subId' in typedResult && typedResult.subId !== null) {
             subscriptionIdRef.current = String(typedResult.subId);
           }
         } else if (typeof result === 'string') {
