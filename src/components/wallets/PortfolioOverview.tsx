@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Wallet, FilePlus, Trash, Circle, TrendingUp, CircleDollarSign, BarChart3, Coins, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -6,7 +7,6 @@ import { useNostr } from "@/contexts/NostrContext";
 import { toast } from "@/components/ui/use-toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import PortfolioChart from './PortfolioChart';
 import alephiumAPI from '@/lib/alephiumAPI';
 import * as tokenMetadataModule from "@/lib/tokenMetadata";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -75,66 +75,11 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
   const [aggregatedNFTs, setAggregatedNFTs] = useState<NFTData[]>([]);
   const [aggregatedPools, setAggregatedPools] = useState<PoolData[]>([]);
   
-  // Color palette for charts
-  const CHART_COLORS = ['#0042C4', '#6366f1', '#8b5cf6', '#d946ef', '#f97316', '#06b6d4'];
-  
-  // Compute chart data for asset distribution
-  const chartData = useMemo(() => {
-    if (ecosystem !== 'alephium') return [];
+  // Load wallets from localStorage based on the selected ecosystem
+  useEffect(() => {
+    loadWallets();
+  }, [ecosystem]);
 
-    const tokens = Object.values(aggregatedTokens);
-    const alphBalance = wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0);
-    const alphValue = alphBalance * (currentPrice || 0.38);
-    
-    const tokenData = [];
-    
-    // Add ALPH balance
-    if (alphBalance > 0) {
-      tokenData.push({
-        name: 'ALPH',
-        value: alphValue,
-        color: CHART_COLORS[0]
-      });
-    }
-    
-    // Add token balances
-    tokens.forEach((token, index) => {
-      if (token.symbol !== 'ALPH' && token.value > 0) {
-        tokenData.push({
-          name: token.symbol,
-          value: token.value,
-          color: CHART_COLORS[(index + 1) % CHART_COLORS.length]
-        });
-      }
-    });
-    
-    // Add a category for NFTs if we have any
-    if (aggregatedNFTs.length > 0) {
-      const nftValue = aggregatedNFTs.reduce((sum, nft) => sum + nft.floorPrice, 0);
-      if (nftValue > 0) {
-        tokenData.push({
-          name: 'NFTs',
-          value: nftValue,
-          color: CHART_COLORS[(tokenData.length) % CHART_COLORS.length]
-        });
-      }
-    }
-    
-    // Add a category for liquidity pools if we have any
-    if (aggregatedPools.length > 0) {
-      const poolValue = aggregatedPools.reduce((sum, pool) => sum + pool.liquidity, 0);
-      if (poolValue > 0) {
-        tokenData.push({
-          name: 'Pools',
-          value: poolValue,
-          color: CHART_COLORS[(tokenData.length) % CHART_COLORS.length]
-        });
-      }
-    }
-    
-    return tokenData;
-  }, [wallets, aggregatedTokens, aggregatedNFTs, aggregatedPools, currentPrice, ecosystem]);
-  
   // Fetch price data for tokens from CoinGecko
   const fetchPriceData = async () => {
     if (ecosystem !== 'alephium') return;
@@ -643,14 +588,27 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             )}
           </div>
           
-          {/* Replace the previous asset distribution bar with our new chart component */}
-          {ecosystem === 'alephium' && wallets.length > 0 && chartData.length > 0 && (
-            <PortfolioChart 
-              tokenDistribution={chartData}
-              totalValue={totalValue}
-              currentPrice={currentPrice}
-              priceChange24h={priceChange24h}
-            />
+          {/* Asset Distribution Chart - placeholder for now */}
+          {ecosystem === 'alephium' && wallets.length > 0 && (
+            <div className="mt-4 pt-4 border-t dark:border-white/10">
+              <h3 className="text-sm font-medium mb-2">Asset Distribution</h3>
+              <div className="h-6 w-full rounded-full overflow-hidden bg-muted">
+                <div className="flex h-full">
+                  <div className="bg-nostr-blue h-full" style={{ width: '65%' }}>
+                    <span className="px-2 text-xs text-white">ALPH (65%)</span>
+                  </div>
+                  <div className="bg-purple-500 h-full" style={{ width: '20%' }}>
+                    <span className="px-2 text-xs text-white">Tokens (20%)</span>
+                  </div>
+                  <div className="bg-amber-500 h-full" style={{ width: '10%' }}>
+                    <span className="px-2 text-xs text-white">NFTs (10%)</span>
+                  </div>
+                  <div className="bg-green-500 h-full" style={{ width: '5%' }}>
+                    <span className="px-2 text-xs text-white">Pools (5%)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
