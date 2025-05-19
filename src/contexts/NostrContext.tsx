@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { SimplePool, Event, getEventHash, signEvent, Sub } from 'nostr-tools';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
 import {
   DEFAULT_RELAYS,
@@ -43,8 +43,6 @@ interface NostrContextType {
   removeRelay: (url: string) => void;
   updateRelay: (url: string, read: boolean, write: boolean) => void;
   saveRelaysToStorage: () => void;
-  subscribeToNotes: (pubkey?: string, limit?: number, since?: number) => Sub | null;
-  loadMoreNotes: (pubkey?: string, limit?: number, until?: number) => Promise<NostrNote[]>;
 }
 
 const NostrContext = createContext<NostrContextType | null>(null);
@@ -67,9 +65,6 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [notes, setNotes] = useState<NostrNote[]>([]);
   const [relays, setRelays] = useState<NostrRelayConfig[]>(DEFAULT_RELAYS);
   const [pool, setPool] = useState<SimplePool | null>(null);
-  
-  // Track active subscriptions to clean them up when needed
-  const activeSubscriptions = useRef<Sub[]>([]);
 
   // Initialize NOSTR connection
   useEffect(() => {
@@ -100,7 +95,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setNpub(userProfile.npub || null);
           }
 
-          // Fetch initial notes (not using subscription yet, just for immediate display)
+          // Fetch user's notes
           const userNotes = await fetchNotes(savedPublicKey);
           setNotes(userNotes);
         }
@@ -118,131 +113,11 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     initNostr();
 
-    // Clean up subscriptions and close pool
+    // Clean up
     return () => {
-      // Clean up all active subscriptions
-      activeSubscriptions.current.forEach(sub => {
-        if (sub) sub.unsub();
-      });
-      activeSubscriptions.current = [];
-
-      // Close relay pool
       if (pool) pool.close(relays.map(relay => relay.url));
     };
   }, []);
-
-  // Clean up function for individual subscriptions
-  const cleanupSubscription = (sub: Sub) => {
-    if (sub) {
-      sub.unsub();
-      activeSubscriptions.current = activeSubscriptions.current.filter(s => s !== sub);
-    }
-  };
-
-  // Subscribe to notes - NIP-01 compliant streaming implementation
-  const subscribeToNotes = (pubkey?: string, limit = 10, since?: number): Sub | null => {
-    if (!pool) return null;
-    
-    try {
-      // Define filter based on whether we want a specific user's notes or global feed
-      const filter = pubkey ? 
-        {
-          kinds: [1], // Text notes only
-          authors: [pubkey],
-          limit: limit,
-          since: since,
-        } : 
-        {
-          kinds: [1], // Text notes only
-          limit: limit,
-          since: since,
-        };
-
-      // Create subscription to relays
-      const sub = pool.sub(
-        relays.filter(r => r.read).map(r => r.url),
-        [filter]
-      );
-
-      // Handle incoming events
-      sub.on('event', (event: Event) => {
-        const newNote = parseNote(event);
-        
-        // Update notes state, avoiding duplicates
-        setNotes(prevNotes => {
-          const exists = prevNotes.some(note => note.id === newNote.id);
-          if (exists) {
-            return prevNotes;
-          }
-          return [newNote, ...prevNotes].sort((a, b) => b.created_at - a.created_at);
-        });
-      });
-
-      // Handle end of stored events (EOSE)
-      sub.on('eose', () => {
-        console.log('End of stored events received');
-      });
-
-      // Keep track of subscription for cleanup
-      activeSubscriptions.current.push(sub);
-      
-      return sub;
-    } catch (error) {
-      console.error('Error subscribing to notes:', error);
-      return null;
-    }
-  };
-
-  // Load more notes (for infinite scrolling) - NIP-01 compliant
-  const loadMoreNotes = async (pubkey?: string, limit = 15, until?: number): Promise<NostrNote[]> => {
-    if (!pool) return [];
-
-    try {
-      // Define filter based on whether we want a specific user's notes or global feed
-      const filter = pubkey ? 
-        {
-          kinds: [1], // Text notes only
-          authors: [pubkey],
-          limit: limit,
-          until: until, // Using until for pagination (getting older posts)
-        } : 
-        {
-          kinds: [1], // Text notes only
-          limit: limit,
-          until: until, // Using until for pagination (getting older posts)
-        };
-
-      // Fetch older note events
-      const events = await pool.list(
-        relays.filter(r => r.read).map(r => r.url),
-        [filter]
-      );
-
-      // Parse and sort events
-      const olderNotes = events
-        .sort((a, b) => b.created_at - a.created_at)
-        .map(event => parseNote(event));
-
-      // Add to existing notes state, avoiding duplicates
-      setNotes(prevNotes => {
-        const combined = [...prevNotes];
-        
-        olderNotes.forEach(newNote => {
-          const exists = combined.some(note => note.id === newNote.id);
-          if (!exists) {
-            combined.push(newNote);
-          }
-        });
-        
-        return combined.sort((a, b) => b.created_at - a.created_at);
-      });
-
-      return olderNotes;
-    } catch (error) {
-      console.error('Error loading more notes:', error);
-      return [];
-    }
-  };
 
   const login = (pubkey?: string) => {
     try {
@@ -440,11 +315,11 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         {
           kinds: [1], // Text notes only
           authors: [pubkey],
-          limit: 10, // Initial load limit set to 10
+          limit: 20,
         } : 
         {
           kinds: [1], // Text notes only
-          limit: 10, // Initial load limit set to 10
+          limit: 50,
         };
 
       // Fetch note events
@@ -843,8 +718,6 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     removeRelay,
     updateRelay,
     saveRelaysToStorage,
-    subscribeToNotes,
-    loadMoreNotes,
   };
 
   return (
