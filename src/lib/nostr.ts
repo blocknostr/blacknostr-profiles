@@ -1,4 +1,3 @@
-
 import { generatePrivateKey, getPublicKey, nip19 } from 'nostr-tools';
 import type { Event as NostrEvent } from 'nostr-tools';
 
@@ -271,3 +270,40 @@ export const publishAlephiumTxToNostr = async (
     return false;
   }
 };
+
+// Create a simple NostrService singleton for use across the application
+class NostrService {
+  private _privateKey: string | null = null;
+  private _publicKey: string | null = null;
+
+  constructor() {
+    // Initialize keys from local storage on instantiation
+    const { privateKey, publicKey } = getKeys();
+    this._privateKey = privateKey;
+    this._publicKey = publicKey;
+  }
+
+  get privateKey(): string | null {
+    return this._privateKey;
+  }
+
+  get publicKey(): string | null {
+    return this._publicKey;
+  }
+
+  setKeys(privateKey: string): void {
+    const { privateKey: savedPrivate, publicKey: savedPublic } = saveKeys(privateKey);
+    this._privateKey = savedPrivate;
+    this._publicKey = savedPublic;
+  }
+
+  resetKeys(): void {
+    this._privateKey = null;
+    this._publicKey = null;
+    localStorage.removeItem(NOSTR_KEYS.PRIVATE_KEY);
+    localStorage.removeItem(NOSTR_KEYS.PUBLIC_KEY);
+  }
+}
+
+// Export a singleton instance
+export const nostrService = new NostrService();

@@ -6,7 +6,7 @@ import alephiumAPI from '@/lib/alephiumAPI';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ExternalLink, ArrowRight } from 'lucide-react';
-import WalletSummary from './WalletSummary';
+import { WalletSummary } from './WalletSummary';
 
 // Keep the types
 interface NetworkStats {
@@ -30,7 +30,7 @@ interface NetworkStats {
 }
 
 const AlephiumSection = () => {
-  const { connectionStatus, connect, account } = useWallet();
+  const { connectionStatus, account } = useWallet();
   const [stats, setStats] = useState<NetworkStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -82,6 +82,18 @@ const AlephiumSection = () => {
     return Math.floor(seconds) + " seconds ago";
   };
 
+  // Handle wallet connection
+  const connectWallet = () => {
+    // Use the proper method from @alephium/web3-react
+    try {
+      // The useWallet hook doesn't have a connect method directly
+      // Instead, we need to trigger the wallet connection dialog through the extension
+      window.dispatchEvent(new CustomEvent('alephium:connect'));
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Wallet Connection Card */}
@@ -95,7 +107,7 @@ const AlephiumSection = () => {
           </CardHeader>
           <CardContent>
             <Button 
-              onClick={() => connect()}
+              onClick={connectWallet}
               className="bg-nostr-blue text-white hover:bg-nostr-blue/90"
             >
               Connect Wallet
