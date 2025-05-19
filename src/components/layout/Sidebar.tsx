@@ -16,7 +16,7 @@ import {
   PenSquare,
   Users
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -24,7 +24,6 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 export default function Sidebar() {
   const { isAuthenticated, profile, logout, publishNote } = useNostr();
   const [noteContent, setNoteContent] = useState("");
-  const location = useLocation();
   
   const navItems = [
     { icon: <Home className="h-5 w-5" />, label: "Home", href: "/" },
@@ -86,11 +85,7 @@ export default function Sidebar() {
           <Link
             key={item.label}
             to={item.href}
-            className={`flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors ${
-              location.pathname === item.href
-              ? "bg-accent text-accent-foreground dark:bg-white/10"
-              : "hover:bg-muted dark:hover:bg-white/5"
-            }`}
+            className="flex items-center px-3 py-2 rounded-md text-base font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
           >
             {item.icon}
             <span className="ml-3">{item.label}</span>

@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageSquare, Repeat, Share } from "lucide-react";
 import { NostrNote, NostrProfile, formatTimestamp } from "@/lib/nostr";
-import { toast } from "@/components/ui/use-toast";
 
 interface NoteCardProps {
   note: NostrNote;
@@ -16,7 +15,7 @@ interface NoteCardProps {
 export default function NoteCard({ note, authorProfile }: NoteCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isReposted, setIsReposted] = useState(false);
-  const { likeNote, repostNote, isAuthenticated } = useNostr();
+  const { likeNote, repostNote } = useNostr();
 
   // Format relative time (e.g. "2h ago")
   const formatRelativeTime = (timestamp: number) => {
@@ -33,55 +32,13 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
   };
 
   const handleLike = async () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication required",
-        description: "You must be logged in to like notes",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsLiked(!isLiked);
     await likeNote(note.id);
   };
 
   const handleRepost = async () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication required",
-        description: "You must be logged in to repost notes",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsReposted(!isReposted);
     await repostNote(note.id);
-  };
-
-  const handleReply = () => {
-    toast({
-      title: "Coming soon",
-      description: "Reply functionality will be available soon",
-    });
-  };
-
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: 'Shared via BlockNostr',
-        text: note.content,
-        url: `nostr:note:${note.id}`,
-      }).catch((error) => console.error('Error sharing:', error));
-    } else {
-      // Fallback for browsers that don't support Web Share API
-      navigator.clipboard.writeText(`nostr:note:${note.id}`);
-      toast({
-        title: "Link copied",
-        description: "Note link copied to clipboard",
-      });
-    }
   };
 
   const displayName = authorProfile?.displayName || authorProfile?.name || "Anonymous";
@@ -113,7 +70,7 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
         <p className="whitespace-pre-wrap">{note.content}</p>
       </CardContent>
       <CardFooter className="p-2 pt-0 flex justify-between">
-        <Button variant="ghost" size="sm" onClick={handleReply}>
+        <Button variant="ghost" size="sm">
           <MessageSquare className="h-4 w-4 mr-1" />
           <span className="text-xs">Reply</span>
         </Button>
@@ -135,7 +92,7 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
           <Heart className="h-4 w-4 mr-1" />
           <span className="text-xs">Like</span>
         </Button>
-        <Button variant="ghost" size="sm" onClick={handleShare}>
+        <Button variant="ghost" size="sm">
           <Share className="h-4 w-4 mr-1" />
           <span className="text-xs">Share</span>
         </Button>
