@@ -4,7 +4,7 @@ import { useNostr } from "@/contexts/NostrContext";
 
 const Index = () => {
   const { isAuthenticated } = useNostr();
-  return isAuthenticated ? <Navigate to="/profile" /> : <Navigate to="/login" />;
+  return <Navigate to="/profile" />;
 };
 
 export default Index;
