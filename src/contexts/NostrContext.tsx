@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
@@ -14,8 +15,7 @@ import {
   parseNote,
   profileToMetadata,
   NOSTR_KEYS,
-  hexToNpub,
-  NOSTR_KINDS,
+  hexToNpub
 } from '@/lib/nostr';
 
 interface NostrContextType {
@@ -449,107 +449,17 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const publishNote = async (content: string): Promise<boolean> => {
-    if (!pool) {
-      toast({
-        title: "Connection error",
-        description: "Cannot connect to NOSTR network",
-        variant: "destructive"
-      });
-      return false;
-    }
-    
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication required",
-        description: "You must be logged in to publish a note",
-        variant: "destructive"
-      });
-      return false;
-    }
-    
-    if (!publicKey) {
-      toast({
-        title: "Missing public key",
-        description: "Your public key is not available",
-        variant: "destructive"
-      });
-      return false;
-    }
+    if (!pool || !privateKey || !publicKey) return false;
 
-    try {
-      // Create note event (kind: 1) according to NIP-01
-      let event: Event = {
-        kind: NOSTR_KINDS.TEXT_NOTE, // Text note event (kind 1)
-        pubkey: publicKey,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [],
-        content: content,
-        id: '', // Will be set below
-        sig: '', // Will be set below
-      };
+    // Implement this with nostr-tools
+    // You'll need to create a signed event and publish it
+    // This is a placeholder for now
+    toast({
+      title: 'Note publishing not implemented yet',
+      description: 'Coming soon!',
+    });
 
-      // Calculate id from event data
-      event.id = getEventHash(event);
-      
-      // If using extension, sign with it
-      if (window.nostr) {
-        try {
-          const signedEvent = await window.nostr.signEvent(event);
-          
-          // Publish to relays
-          const publishPromises = relays
-            .filter(relay => relay.write)
-            .map(relay => pool.publish([relay.url], signedEvent));
-          
-          await Promise.all(publishPromises);
-          
-          // Update local notes array with the new note
-          const newNote = parseNote(signedEvent);
-          setNotes(prevNotes => [newNote, ...prevNotes]);
-          
-          return true;
-        } catch (err) {
-          console.error("Extension signing error:", err);
-          toast({
-            title: "Extension signing failed",
-            description: "Please check your NOSTR browser extension",
-            variant: "destructive"
-          });
-          return false;
-        }
-      } else if (privateKey) {
-        // Sign with local private key
-        event.sig = signEvent(event, privateKey);
-        
-        // Publish to relays
-        const publishPromises = relays
-          .filter(relay => relay.write)
-          .map(relay => pool.publish([relay.url], event));
-        
-        await Promise.all(publishPromises);
-        
-        // Update local notes array with the new note
-        const newNote = parseNote(event);
-        setNotes(prevNotes => [newNote, ...prevNotes]);
-        
-        return true;
-      } else {
-        toast({
-          title: "Signing error",
-          description: "No private key or extension available for signing",
-          variant: "destructive"
-        });
-        return false;
-      }
-    } catch (error) {
-      console.error('Error publishing note:', error);
-      toast({
-        title: "Error publishing note",
-        description: "There was an error publishing your note",
-        variant: "destructive"
-      });
-      return false;
-    }
+    return false;
   };
 
   const followUser = async (pubkey: string): Promise<boolean> => {

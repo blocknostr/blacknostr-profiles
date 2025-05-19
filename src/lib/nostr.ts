@@ -1,4 +1,4 @@
-import { generatePrivateKey, getPublicKey, nip19, getSignature } from 'nostr-tools';
+import { generatePrivateKey, getPublicKey, nip19 } from 'nostr-tools';
 import type { Event as NostrEvent } from 'nostr-tools';
 
 // Types based on NOSTR Implementation Possibilities (NIPs)
@@ -244,10 +244,6 @@ export const createAlephiumTxEvent = (
     pubkey: getPublicKey(privateKey),
   };
   
-  // Add id and signature
-  event.id = getEventHash(event);
-  event.sig = getSignature(event, privateKey);
-  
   return event;
 };
 
@@ -311,25 +307,3 @@ class NostrService {
 
 // Export a singleton instance
 export const nostrService = new NostrService();
-
-// Add getEventHash function
-export function getEventHash(event: NostrEvent): string {
-  const eventData = [
-    0,
-    event.pubkey,
-    event.created_at,
-    event.kind,
-    event.tags,
-    event.content,
-  ];
-  const serialized = JSON.stringify(eventData);
-  const hash = new Uint8Array(32);
-  // In a real implementation, you would compute the SHA-256 hash
-  // For now, we'll just return a placeholder
-  return 'placeholder-hash-' + Math.random().toString(36).substring(7);
-}
-
-// Add signEvent function compatible with nostr-tools
-export function signEvent(event: NostrEvent, privateKey: string): string {
-  return getSignature(event, privateKey);
-}
