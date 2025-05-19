@@ -6,6 +6,7 @@ import NoteFeed from "@/components/feed/NoteFeed";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useState } from "react";
 import { fetchRelayInformation } from "@/lib/nostr";
+import CreateNote from "@/components/feed/CreateNote";
 
 const Index = () => {
   const { isAuthenticated, isLoading, relays } = useNostr();
@@ -64,6 +65,9 @@ const Index = () => {
       <div className="space-y-4">
         <h1 className="text-2xl font-bold">Home</h1>
         
+        {/* Create Note Component */}
+        <CreateNote />
+        
         <Tabs 
           defaultValue="global" 
           className="w-full"
@@ -75,13 +79,10 @@ const Index = () => {
             <TabsTrigger value="following" className="flex-1">Following</TabsTrigger>
           </TabsList>
           <TabsContent value="global" className="mt-4">
-            <NoteFeed />
+            <NoteFeed feedType="global" />
           </TabsContent>
           <TabsContent value="following" className="mt-4">
-            <div className="text-center py-12 text-muted-foreground">
-              <p>Your following feed will appear here.</p>
-              <p>Follow some users to see their posts!</p>
-            </div>
+            <NoteFeed feedType="following" />
           </TabsContent>
         </Tabs>
         

@@ -7,22 +7,29 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface NoteFeedProps {
   pubkey?: string;
+  feedType?: "global" | "following";
 }
 
-export default function NoteFeed({ pubkey }: NoteFeedProps) {
-  const { notes, fetchNotes, fetchProfile } = useNostr();
+export default function NoteFeed({ pubkey, feedType = "global" }: NoteFeedProps) {
+  const { notes, fetchNotes, fetchProfile, fetchFollowingFeed } = useNostr();
   const [isLoading, setIsLoading] = useState(true);
   const [authorProfiles, setAuthorProfiles] = useState<Record<string, NostrProfile>>({});
 
   useEffect(() => {
     const loadNotes = async () => {
       setIsLoading(true);
-      await fetchNotes(pubkey);
+      
+      if (feedType === "following" && !pubkey) {
+        await fetchFollowingFeed();
+      } else {
+        await fetchNotes(pubkey);
+      }
+      
       setIsLoading(false);
     };
 
     loadNotes();
-  }, [fetchNotes, pubkey]);
+  }, [fetchNotes, fetchFollowingFeed, pubkey, feedType]);
 
   useEffect(() => {
     // Fetch profiles for all unique authors
@@ -73,8 +80,16 @@ export default function NoteFeed({ pubkey }: NoteFeedProps) {
   if (notes.length === 0) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-medium">No notes found</h3>
-        <p className="text-muted-foreground">Be the first to post something!</p>
+        <h3 className="text-lg font-medium">
+          {feedType === "following" 
+            ? "No posts from people you follow yet" 
+            : "No notes found"}
+        </h3>
+        <p className="text-muted-foreground">
+          {feedType === "following" 
+            ? "Follow some users to see their posts here" 
+            : "Be the first to post something!"}
+        </p>
       </div>
     );
   }

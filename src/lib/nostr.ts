@@ -1,4 +1,3 @@
-
 import { generatePrivateKey, getPublicKey, nip19 } from 'nostr-tools';
 import type { Event as NostrEvent } from 'nostr-tools';
 
@@ -77,6 +76,7 @@ export const NOSTR_KINDS = {
   CONTACTS: 3,
   ENCRYPTED_DIRECT_MESSAGE: 4,
   DELETE: 5,
+  REPOST: 6,
   REACTION: 7,
   CHANNEL_CREATION: 40,
   CHANNEL_METADATA: 41,
