@@ -6,7 +6,7 @@ import alephiumAPI from '@/lib/alephiumAPI';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ExternalLink, ArrowRight } from 'lucide-react';
-import { WalletSummary } from './WalletSummary';
+import WalletSummary from './WalletSummary';
 
 // Keep the types
 interface NetworkStats {
