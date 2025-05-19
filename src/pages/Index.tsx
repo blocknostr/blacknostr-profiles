@@ -116,7 +116,11 @@ const Index = () => {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Supported NIPs: </span>
-                      {info.supported_nips ? info.supported_nips.slice(0, 3).join(", ") + (info.supported_nips.length > 3 ? "..." : "") : "Unknown"}
+                      {/* Fix: Check if supported_nips is an array before calling slice */}
+                      {info.supported_nips && Array.isArray(info.supported_nips)
+                        ? info.supported_nips.slice(0, 3).join(", ") + 
+                          (info.supported_nips.length > 3 ? "..." : "")
+                        : "Unknown"}
                     </div>
                   </div>
                 </div>
