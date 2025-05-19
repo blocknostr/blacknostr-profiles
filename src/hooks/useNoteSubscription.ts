@@ -118,10 +118,10 @@ export default function useNoteSubscription(pubkey?: string, followingFeed?: boo
         }
         
         // Type assertion after null check
-        const safeResult = result as NonNullable<typeof result>;
+        const safeResult = result;
         
-        // Check if result is an object
-        if (typeof safeResult === 'object') {
+        // Check if result is an object and not null
+        if (safeResult && typeof safeResult === 'object') {
           // Check for hasMore property
           if ('hasMore' in safeResult) {
             setHasMore(safeResult.hasMore);
