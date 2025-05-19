@@ -152,19 +152,27 @@ export default function NoteFeed({ pubkey, followingFeed }: NoteFeedProps) {
           nextPage * notesPerPage
         );
         
-        // This is the fix - checking if result contains hasMore boolean property
-        if (typeof result === 'object' && 'hasMore' in result) {
-          setHasMore(result.hasMore);
-          // If the object also contains a subscription ID, update it
-          if ('subId' in result) {
-            subscriptionIdRef.current = result.subId;
+        // Fix: Added null check before accessing properties
+        if (result !== null) {
+          // Check if result contains hasMore boolean property
+          if (typeof result === 'object' && 'hasMore' in result) {
+            setHasMore(result.hasMore);
+            // If the object also contains a subscription ID, update it
+            if ('subId' in result) {
+              subscriptionIdRef.current = result.subId;
+            }
           }
+        } else {
+          // If result is null, assume there are no more notes
+          setHasMore(false);
         }
         
         setPage(nextPage);
       }
     } catch (error) {
       console.error("Error loading more notes:", error);
+      // In case of error, assume there are no more notes
+      setHasMore(false);
     } finally {
       setIsLoadingMore(false);
     }
