@@ -1,8 +1,10 @@
 
 import { Navigate } from "react-router-dom";
+import { useNostr } from "@/contexts/NostrContext";
 
 const Index = () => {
-  return <Navigate to="/login" />;
+  const { isAuthenticated } = useNostr();
+  return isAuthenticated ? <Navigate to="/profile" /> : <Navigate to="/login" />;
 };
 
 export default Index;

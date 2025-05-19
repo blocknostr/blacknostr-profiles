@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,12 +8,21 @@ import { toast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wallet, Key, UserPlus } from "lucide-react";
 import { hexToNpub, npubToHex } from "@/lib/nostr";
+import { useNavigate } from "react-router-dom";
 
 export function LoginForm() {
-  const { login, createAccount, loginWithPrivateKey } = useNostr();
+  const { login, createAccount, loginWithPrivateKey, isAuthenticated } = useNostr();
   const [isLoading, setIsLoading] = useState(false);
   const [nsec, setNsec] = useState('');
   const [selectedTab, setSelectedTab] = useState('extension');
+  const navigate = useNavigate();
+  
+  // Redirect to profile page if authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/profile');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleExtensionLogin = () => {
     setIsLoading(true);
@@ -27,6 +36,7 @@ export function LoginForm() {
               title: 'Logged in with extension',
               description: 'Successfully logged in with your NOSTR extension',
             });
+            navigate('/profile');
           } else {
             throw new Error('No public key found in extension');
           }
@@ -67,6 +77,7 @@ export function LoginForm() {
         title: 'Guest account created',
         description: 'You are now logged in as a guest user',
       });
+      navigate('/profile');
     } catch (error) {
       console.error('Error creating guest account:', error);
       toast({
@@ -111,6 +122,7 @@ export function LoginForm() {
 
       loginWithPrivateKey(privateKey);
       setNsec('');
+      navigate('/profile');
     } catch (error) {
       console.error('Manual login error:', error);
       toast({
