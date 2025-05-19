@@ -85,8 +85,11 @@ export default function useNoteSubscription(
       // Handle the result which could be a string or an object
       if (typeof result === 'string') {
         subscriptionIdRef.current = result;
-      } else if (result !== null && typeof result === 'object' && 'subId' in result) {
-        subscriptionIdRef.current = result.subId;
+        setHasMore(true); // Default to true when we can't determine
+      } else if (result !== null && typeof result === 'object') {
+        if ('subId' in result) {
+          subscriptionIdRef.current = result.subId;
+        }
         if ('hasMore' in result) {
           setHasMore(Boolean(result.hasMore));
         }
@@ -162,13 +165,15 @@ export default function useNoteSubscription(
         }
         
         // Check if result is an object with hasMore property
-        if (result !== null && typeof result === 'object' && 'hasMore' in result) {
-          setHasMore(Boolean(result.hasMore));
-        }
-        
-        // Check if result is an object with subId property
-        if (result !== null && typeof result === 'object' && 'subId' in result) {
-          subscriptionIdRef.current = String(result.subId);
+        if (typeof result === 'object' && result !== null) {
+          if ('hasMore' in result) {
+            setHasMore(Boolean(result.hasMore));
+          }
+          
+          // Check if result is an object with subId property
+          if ('subId' in result) {
+            subscriptionIdRef.current = result.subId;
+          }
         }
         
         setPage(nextPage);
@@ -192,10 +197,16 @@ export default function useNoteSubscription(
     setIsLoading(true);
     
     // Start a new subscription
-    const subId = subscribeToNotes(pubkey, handleNewNotes, notesPerPage);
-    subscriptionIdRef.current = subId;
+    const result = subscribeToNotes(pubkey, handleNewNotes, notesPerPage);
+    
+    if (typeof result === 'string') {
+      subscriptionIdRef.current = result;
+    } else if (result !== null && typeof result === 'object' && 'subId' in result) {
+      subscriptionIdRef.current = result.subId;
+    }
     
     setIsLoading(false);
+    return Promise.resolve();
   };
 
   return {

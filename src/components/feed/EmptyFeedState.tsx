@@ -1,44 +1,42 @@
 
-import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { useNostr } from '@/contexts/NostrContext';
+import { Button } from '@/components/ui/button';
+import { RefreshCw, Inbox, UserPlus } from 'lucide-react';
 
-interface EmptyFeedStateProps {
+export interface EmptyFeedStateProps {
+  message: string;
   followingFeed?: boolean;
-  onRefresh: () => Promise<void>;
+  onRefresh?: () => void;
 }
 
-export default function EmptyFeedState({ followingFeed, onRefresh }: EmptyFeedStateProps) {
-  if (followingFeed) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        <p>Your following feed will appear here.</p>
-        <p>Follow some users to see their posts!</p>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={onRefresh}
-          className="mt-4 flex items-center gap-1"
-        >
-          <RefreshCw className="h-4 w-4" />
-          <span>Refresh</span>
-        </Button>
-      </div>
-    );
-  }
+export default function EmptyFeedState({ 
+  message, 
+  followingFeed,
+  onRefresh 
+}: EmptyFeedStateProps) {
+  const { isAuthenticated } = useNostr();
 
   return (
-    <div className="text-center py-12">
-      <h3 className="text-lg font-medium">No notes found</h3>
-      <p className="text-muted-foreground">Be the first to post something!</p>
-      <Button 
-        variant="outline" 
-        size="sm" 
-        onClick={onRefresh}
-        className="mt-4 flex items-center gap-1"
-      >
-        <RefreshCw className="h-4 w-4" />
-        <span>Refresh</span>
-      </Button>
+    <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+      <div className="bg-muted/30 rounded-full p-4">
+        {followingFeed ? <UserPlus className="h-12 w-12 text-muted-foreground" /> : <Inbox className="h-12 w-12 text-muted-foreground" />}
+      </div>
+      <h3 className="text-xl font-medium">{message}</h3>
+      
+      <div className="flex gap-2">
+        {onRefresh && (
+          <Button variant="outline" onClick={onRefresh}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        )}
+        
+        {isAuthenticated && followingFeed && (
+          <Button asChild>
+            <a href="/profile">Find People to Follow</a>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
