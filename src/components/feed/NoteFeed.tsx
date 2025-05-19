@@ -152,19 +152,24 @@ export default function NoteFeed({ pubkey, followingFeed }: NoteFeedProps) {
           nextPage * notesPerPage
         );
         
-        // Fix: Added null check before accessing properties
-        if (result !== null) {
-          // Check if result contains hasMore boolean property
-          if (typeof result === 'object' && 'hasMore' in result) {
-            setHasMore(result.hasMore);
-            // If the object also contains a subscription ID, update it
-            if ('subId' in result) {
-              subscriptionIdRef.current = result.subId;
-            }
-          }
-        } else {
-          // If result is null, assume there are no more notes
+        // Handle null result - no more notes available
+        if (result === null) {
           setHasMore(false);
+          setPage(nextPage);
+          return;
+        }
+        
+        // Now we're sure result is not null, we can safely check its properties
+        if (typeof result === 'object') {
+          // Check for hasMore property
+          if ('hasMore' in result) {
+            setHasMore(result.hasMore);
+          }
+          
+          // Check for subId property
+          if ('subId' in result) {
+            subscriptionIdRef.current = result.subId;
+          }
         }
         
         setPage(nextPage);
