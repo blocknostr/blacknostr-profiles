@@ -4,9 +4,37 @@ import MainLayout from "@/components/layout/MainLayout";
 import { LoginForm } from "@/components/auth/LoginForm";
 import NoteFeed from "@/components/feed/NoteFeed";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useEffect, useState } from "react";
+import { fetchRelayInformation } from "@/lib/nostr";
 
 const Index = () => {
-  const { isAuthenticated, isLoading } = useNostr();
+  const { isAuthenticated, isLoading, relays } = useNostr();
+  const [relayInfo, setRelayInfo] = useState<Record<string, any>>({});
+  const [activeTab, setActiveTab] = useState("global");
+
+  // Fetch relay information when component mounts or relays change
+  useEffect(() => {
+    const getRelayInfo = async () => {
+      const info: Record<string, any> = {};
+      
+      for (const relay of relays) {
+        if (relay.read) {
+          try {
+            const relayData = await fetchRelayInformation(relay.url);
+            if (relayData) {
+              info[relay.url] = relayData;
+            }
+          } catch (error) {
+            console.error(`Failed to fetch info for relay ${relay.url}:`, error);
+          }
+        }
+      }
+      
+      setRelayInfo(info);
+    };
+    
+    getRelayInfo();
+  }, [relays]);
 
   if (isLoading) {
     return (
@@ -36,7 +64,12 @@ const Index = () => {
       <div className="space-y-4">
         <h1 className="text-2xl font-bold">Home</h1>
         
-        <Tabs defaultValue="global" className="w-full">
+        <Tabs 
+          defaultValue="global" 
+          className="w-full"
+          onValueChange={setActiveTab}
+          value={activeTab}
+        >
           <TabsList className="w-full dark:bg-nostr-cardBg">
             <TabsTrigger value="global" className="flex-1">Global</TabsTrigger>
             <TabsTrigger value="following" className="flex-1">Following</TabsTrigger>
@@ -51,6 +84,50 @@ const Index = () => {
             </div>
           </TabsContent>
         </Tabs>
+        
+        {/* Relay information section - compliant with NIP-11 */}
+        <div className="mt-6 pt-4 border-t border-border dark:border-white/10">
+          <h2 className="text-lg font-semibold mb-2">Connected Relays</h2>
+          <div className="space-y-3">
+            {Object.entries(relayInfo).length > 0 ? (
+              Object.entries(relayInfo).map(([url, info]) => (
+                <div key={url} className="p-3 border rounded-md dark:bg-nostr-cardBg">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">{info.name || url}</span>
+                    <span className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 px-2 py-1 rounded-full">
+                      Connected
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1 truncate">
+                    {info.description || "No description"}
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Software: </span>
+                      {info.software || "Unknown"}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Version: </span>
+                      {info.version || "Unknown"}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Contact: </span>
+                      {info.contact || "None"}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Supported NIPs: </span>
+                      {info.supported_nips ? info.supported_nips.slice(0, 3).join(", ") + (info.supported_nips.length > 3 ? "..." : "") : "Unknown"}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">
+                <p>Fetching relay information...</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </MainLayout>
   );

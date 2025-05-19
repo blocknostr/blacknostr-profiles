@@ -1,3 +1,4 @@
+
 import { generatePrivateKey, getPublicKey, nip19 } from 'nostr-tools';
 import type { Event as NostrEvent } from 'nostr-tools';
 
@@ -268,6 +269,34 @@ export const publishAlephiumTxToNostr = async (
   } catch (error) {
     console.error('Error publishing transaction to NOSTR:', error);
     return false;
+  }
+};
+
+// Fetch relay information following NIP-11
+export const fetchRelayInformation = async (relayUrl: string): Promise<any> => {
+  try {
+    // Convert WebSocket URL to HTTP URL for NIP-11 document
+    let httpUrl = relayUrl.replace(/^wss?:\/\//, 'https://');
+    if (!httpUrl.endsWith('/')) {
+      httpUrl += '/';
+    }
+    
+    // Request the NIP-11 information document
+    const response = await fetch(httpUrl, {
+      headers: {
+        'Accept': 'application/nostr+json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error(`Error fetching relay information for ${relayUrl}:`, error);
+    return null;
   }
 };
 
