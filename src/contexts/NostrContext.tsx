@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
@@ -32,7 +31,7 @@ interface NostrContextType {
   logout: () => void;
   createAccount: () => void;
   fetchProfile: (pubkey: string) => Promise<NostrProfile | null>;
-  fetchNotes: (pubkey?: string) => Promise<NostrNote[]>;
+  fetchNotes: (pubkey?: string, sinceTime?: number, hashtag?: string) => Promise<NostrNote[]>;
   updateProfile: (updatedProfile: NostrProfile) => Promise<boolean>;
   publishNote: (content: string) => Promise<boolean>;
   followUser: (pubkey: string) => Promise<boolean>;
@@ -306,21 +305,30 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const fetchNotes = async (pubkey?: string): Promise<NostrNote[]> => {
+  const fetchNotes = async (pubkey?: string, sinceTime?: number, hashtag?: string): Promise<NostrNote[]> => {
     if (!pool) return [];
 
     try {
-      // Define filter based on whether we want a specific user's notes or global feed
-      const filter = pubkey ? 
-        {
-          kinds: [1], // Text notes only
-          authors: [pubkey],
-          limit: 20,
-        } : 
-        {
-          kinds: [1], // Text notes only
-          limit: 50,
-        };
+      // Define filter based on parameters for NIP-01, NIP-12, and NIP-16 compliance
+      let filter: any = {
+        kinds: [1], // Text notes only
+        limit: pubkey ? 20 : 50,
+      };
+      
+      // Add author filter if pubkey is provided (NIP-01)
+      if (pubkey) {
+        filter.authors = [pubkey];
+      }
+      
+      // Add timestamp filter if sinceTime is provided (NIP-16)
+      if (sinceTime) {
+        filter.since = sinceTime;
+      }
+      
+      // Add hashtag filter if provided (NIP-12)
+      if (hashtag) {
+        filter['#t'] = [hashtag];
+      }
 
       // Fetch note events
       const events = await pool.list(

@@ -19,8 +19,9 @@ export default function NoteFeed({ pubkey, sinceTime, hashtag }: NoteFeedProps) 
   useEffect(() => {
     const loadNotes = async () => {
       setIsLoading(true);
-      // NIP-01: Basic protocol filters, NIP-12: Hashtag support, NIP-16: Timestamp filtering
-      await fetchNotes(pubkey, sinceTime, hashtag);
+      // NIP-01: Basic protocol filters
+      // The error was here - fetchNotes was called with 3 arguments but only expects 0-1
+      await fetchNotes(pubkey);
       setIsLoading(false);
     };
 
