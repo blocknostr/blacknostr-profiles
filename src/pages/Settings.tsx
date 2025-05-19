@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { useNostr } from '@/contexts/NostrContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import MainLayout from '@/components/layout/MainLayout';
+import SimpleMainLayout from '@/components/layout/SimpleMainLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -65,7 +64,7 @@ export default function Settings() {
   };
 
   return (
-    <MainLayout>
+    <SimpleMainLayout>
       <div className="container max-w-4xl mx-auto py-8">
         <h1 className="text-3xl font-bold mb-8 flex items-center">
           <SettingsIcon className="mr-2" /> Settings
@@ -282,6 +281,6 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
-    </MainLayout>
+    </SimpleMainLayout>
   );
 }

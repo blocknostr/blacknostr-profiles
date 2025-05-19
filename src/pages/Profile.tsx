@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { useNostr } from "@/contexts/NostrContext";
-import MainLayout from "@/components/layout/MainLayout";
+import SimpleMainLayout from "@/components/layout/SimpleMainLayout";
 import NoteFeed from "@/components/feed/NoteFeed";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,7 +37,7 @@ const Profile = () => {
   }
 
   return (
-    <MainLayout>
+    <SimpleMainLayout>
       <div className="space-y-4">
         {isLoading ? (
           <div className="space-y-4">
@@ -173,7 +172,7 @@ const Profile = () => {
         open={editProfileOpen}
         onOpenChange={setEditProfileOpen}
       />
-    </MainLayout>
+    </SimpleMainLayout>
   );
 };
 
