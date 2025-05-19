@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SimplePool, Event, getEventHash, finishEvent } from 'nostr-tools';
+import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
 import {
   DEFAULT_RELAYS,
@@ -18,6 +18,14 @@ import {
   hexToUint8Array,
   nostrService
 } from '@/lib/nostr';
+
+// Define the Filter type to match what SimplePool expects
+type NostrFilter = {
+  kinds?: number[];
+  authors?: string[];
+  limit?: number;
+  [key: `#${string}`]: string[];
+};
 
 interface NostrContextType {
   isLoading: boolean;
@@ -196,7 +204,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       // Convert to Uint8Array for compatibility with nostr-tools
       const privateKeyBytes = hexToUint8Array(inputPrivateKey);
-      // Get public key from private key
+      // Get public key from private key - we need to pass Uint8Array, not string
       const derivedPublicKey = getPublicKey(privateKeyBytes);
       
       // Save keys
@@ -283,14 +291,15 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       // Fetch metadata event (kind: 0)
+      // Update to use proper Filter type
+      const filter: NostrFilter = {
+        kinds: [0],
+        authors: [pubkey],
+      };
+      
       const events = await pool.querySync(
         relays.filter(r => r.read).map(r => r.url),
-        [
-          {
-            kinds: [0],
-            authors: [pubkey],
-          }
-        ]
+        [filter]
       );
 
       if (events.length > 0) {
@@ -301,7 +310,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return {
         pubkey: pubkey,
-        npub: null,
+        npub: hexToNpub(pubkey),
       };
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -314,18 +323,23 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       // Define filter based on whether we want a specific user's notes or global feed
-      const filter = pubkey ? 
-        {
+      // Fix the Filter type
+      let filter: NostrFilter;
+      
+      if (pubkey) {
+        filter = {
           kinds: [1], // Text notes only
           authors: [pubkey],
           limit: 20,
-        } : 
-        {
+        };
+      } else {
+        filter = {
           kinds: [1], // Text notes only
           limit: 50,
         };
+      }
 
-      // Fetch note events using querySync instead of list
+      // Fetch note events using querySync with proper filter
       const events = await pool.querySync(
         relays.filter(r => r.read).map(r => r.url),
         [filter]
@@ -404,9 +418,16 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return false;
         }
       } else if (privateKey) {
-        // Sign with local private key using finishEvent from nostr-tools
+        // Sign with local private key using signEvent from nostr-tools
         const privateKeyBytes = hexToUint8Array(privateKey);
-        const signedEvent = finishEvent(event, privateKeyBytes);
+        
+        // Add id to the event
+        const id = getEventHash(event as Event);
+        const eventWithId = { ...event, id };
+        
+        // Sign the event
+        const sig = signEvent(eventWithId as Event, privateKeyBytes);
+        const signedEvent = { ...eventWithId, sig } as Event;
         
         // Publish to relays
         await Promise.all(

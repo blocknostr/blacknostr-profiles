@@ -1,4 +1,5 @@
-import { getPublicKey, nip19, finishEvent } from 'nostr-tools';
+
+import { getPublicKey, nip19, signEvent } from 'nostr-tools';
 import { generateSecretKey, getEventHash, type Event as NostrEvent } from 'nostr-tools';
 import type { Event as NostrEventType } from 'nostr-tools';
 
@@ -121,7 +122,7 @@ declare global {
 
 // Generate new keys
 export const generateKeys = () => {
-  const sk = generateSecretKey(); // Using generateSecretKey instead of generatePrivateKey
+  const sk = generateSecretKey(); 
   const pk = getPublicKey(sk);
   return { privateKey: Buffer.from(sk).toString('hex'), publicKey: pk };
 };
@@ -257,6 +258,13 @@ export const createAlephiumTxEvent = (
     pubkey: getPublicKey(hexToUint8Array(privateKey)), // Convert hex to Uint8Array
   };
   
+  // Compute ID and Sign the event
+  event.id = getEventHash(event);
+  
+  // Since finishEvent is not available, use signEvent instead
+  const privateKeyBytes = hexToUint8Array(privateKey);
+  event.sig = signEvent(event, privateKeyBytes);
+  
   return event;
 };
 
@@ -317,14 +325,28 @@ class NostrService {
     localStorage.removeItem(NOSTR_KEYS.PUBLIC_KEY);
   }
 
-  // Sign and complete a nostr event
+  // Sign a nostr event
   signEvent(event: Partial<NostrEventType>): NostrEventType {
     if (!this._privateKey) {
       throw new Error('No private key available');
     }
     
     const privateKeyBytes = hexToUint8Array(this._privateKey);
-    return finishEvent(event, privateKeyBytes);
+    
+    // Create a properly formatted event
+    const unsignedEvent = {
+      ...event,
+      id: getEventHash(event as NostrEventType),
+    };
+    
+    // Sign the event
+    const sig = signEvent(unsignedEvent as NostrEventType, privateKeyBytes);
+    
+    // Return the complete signed event
+    return {
+      ...unsignedEvent,
+      sig,
+    } as NostrEventType;
   }
 }
 
