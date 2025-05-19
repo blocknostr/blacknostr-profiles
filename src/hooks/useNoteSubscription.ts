@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import { NostrNote } from "@/lib/nostr";
@@ -155,9 +154,8 @@ export default function useNoteSubscription(
           return;
         }
         
-        // TypeScript null safety - we've already checked above that result is not null
         // Check if result is an object with hasMore property
-        if (typeof result === 'object' && 'hasMore' in result) {
+        if (result !== null && typeof result === 'object' && 'hasMore' in result) {
           // Now TypeScript knows result is an object with hasMore
           const typedResult = result as SubscriptionResult;
           // Make sure typedResult.hasMore isn't null before using Boolean()
@@ -167,7 +165,7 @@ export default function useNoteSubscription(
           if ('subId' in typedResult && typedResult.subId !== null) {
             subscriptionIdRef.current = String(typedResult.subId);
           }
-        } else if (typeof result === 'string') {
+        } else if (result !== null && typeof result === 'string') {
           // If result is a string, it's the subscription ID directly
           subscriptionIdRef.current = result;
         }
