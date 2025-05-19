@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Wallet, FilePlus, Trash, Circle, TrendingUp, DatabaseBackup, Database, FileText, Layers, CircleDollarSign, BarChart3 } from "lucide-react";
+import { Wallet, FilePlus, Trash, Circle, TrendingUp, DatabaseBackup, Database, FileText, Layers, CircleDollarSign, BarChart3, Coins } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useNostr } from "@/contexts/NostrContext";
 import { toast } from "@/components/ui/use-toast";
@@ -8,6 +8,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import alephiumAPI from '@/lib/alephiumAPI';
 import * as tokenMetadataModule from "@/lib/tokenMetadata";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import * as coinGeckoAPI from '@/lib/coinGeckoAPI';
 
 interface PortfolioOverviewProps {
   ecosystem: string;
@@ -17,7 +19,7 @@ interface WalletData {
   id: string;
   address: string;
   balance?: number;
-  tokens?: Array<{ symbol: string; balance: number; value: number }>;
+  tokens?: Array<{ symbol: string; balance: number; value: number; usdPrice?: number; tokenId?: string }>;
   nfts?: Array<{ id: string; name: string; collection: string; floorPrice: number }>;
   pools?: Array<{ id: string; name: string; token1: string; token2: string; liquidity: number; apr: number }>;
   lastUpdated?: number;
@@ -27,6 +29,8 @@ interface TokenData {
   symbol: string;
   balance: number;
   value: number;
+  usdPrice?: number;
+  tokenId?: string;
 }
 
 interface NFTData {
@@ -45,6 +49,13 @@ interface PoolData {
   apr: number;
 }
 
+interface PriceData {
+  [key: string]: {
+    usd: number;
+    usd_24h_change: number;
+  };
+}
+
 const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
   const { isAuthenticated } = useNostr();
   const [wallets, setWallets] = useState<WalletData[]>([]);
@@ -55,6 +66,8 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
   const [loading, setLoading] = useState(false);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [priceChange24h, setPriceChange24h] = useState<number>(0);
+  const [priceData, setPriceData] = useState<PriceData>({});
+  const [loadingPrices, setLoadingPrices] = useState(false);
   
   // Aggregate data across all wallets
   const [aggregatedTokens, setAggregatedTokens] = useState<Record<string, TokenData>>({});
@@ -64,29 +77,69 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
   // Load wallets from localStorage based on the selected ecosystem
   useEffect(() => {
     loadWallets();
-    // Fetch Alephium price data if we're on Alephium ecosystem
-    if (ecosystem === 'alephium') {
-      fetchAlephiumPriceData();
-    }
   }, [ecosystem]);
 
-  // Fetch price data for Alephium from a mock API (would be replaced with actual API)
-  const fetchAlephiumPriceData = async () => {
+  // Fetch price data for tokens from CoinGecko
+  const fetchPriceData = async () => {
+    if (ecosystem !== 'alephium') return;
+    
+    setLoadingPrices(true);
     try {
-      // For demo purposes, using mock data
-      // In a real scenario, you'd fetch from CoinGecko or similar API
-      setCurrentPrice(0.82);
-      setPriceChange24h(3.5);
+      // Get price data for ALPH and other tokens from CoinGecko
+      const coinIds = ['alephium', 'alphbanx']; // Add other token IDs as needed
+      const priceData = await coinGeckoAPI.getPrices(coinIds);
+      
+      if (priceData && priceData.alephium) {
+        setCurrentPrice(priceData.alephium.usd || 0);
+        setPriceChange24h(priceData.alephium.usd_24h_change || 0);
+        setPriceData(priceData);
+      }
     } catch (error) {
       console.error("Error fetching price data:", error);
-      setCurrentPrice(0.82);  // fallback values
+      // Fallback values
+      setCurrentPrice(0.82);
       setPriceChange24h(2.3);
+    } finally {
+      setLoadingPrices(false);
     }
+  };
+
+  const updateTokenValuesWithPriceData = (walletData: WalletData[]) => {
+    return walletData.map(wallet => {
+      if (!wallet.tokens) return wallet;
+      
+      const updatedTokens = wallet.tokens.map(token => {
+        let usdPrice = 0;
+        
+        // Try to get price from CoinGecko data
+        if (token.symbol.toLowerCase() === 'alph') {
+          usdPrice = priceData.alephium?.usd || 0;
+        } else if (token.symbol.toLowerCase() === 'abx') {
+          usdPrice = priceData.alphbanx?.usd || 0.05; // Fallback price
+        } else {
+          // Default price for other tokens
+          usdPrice = token.value / token.balance || 0.01;
+        }
+        
+        return {
+          ...token,
+          usdPrice,
+          value: token.balance * usdPrice
+        };
+      });
+      
+      return {
+        ...wallet,
+        tokens: updatedTokens
+      };
+    });
   };
 
   const loadWallets = async () => {
     setLoading(true);
     try {
+      await fetchPriceData();
+      
       const savedWallets = localStorage.getItem(`${ecosystem}_wallets`);
       let walletData = savedWallets ? JSON.parse(savedWallets) : [];
       
@@ -101,11 +154,11 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         
         for (const wallet of walletData) {
           // Skip fetching data if we updated less than an hour ago
-          if (wallet.lastUpdated && now - wallet.lastUpdated < oneHourMs) {
+          if (wallet.lastUpdated && now - wallet.lastUpdated < oneHourMs && wallet.balance) {
             walletsWithData.push(wallet);
             
             // Add wallet balance to total
-            const walletValue = (wallet.balance || 0) + 
+            const walletValue = (wallet.balance || 0) * (currentPrice || 0.82) + 
               ((wallet.tokens || []).reduce((sum, token) => sum + token.value, 0));
             total += walletValue;
             continue;
@@ -148,13 +201,21 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                       }
                     }
                     
-                    // Default price - this would ideally come from a price API
-                    const tokenPrice = 0.01;
+                    // Get token price from priceData if available
+                    let tokenPrice = 0.01; // Default fallback price
+                    
+                    if (symbol.toLowerCase() === 'alph') {
+                      tokenPrice = currentPrice || 0.82;
+                    } else if (symbol.toLowerCase() === 'abx') {
+                      tokenPrice = priceData.alphbanx?.usd || 0.05;
+                    }
                     
                     tokens.push({
                       symbol,
                       balance: formattedAmount,
-                      value: formattedAmount * tokenPrice
+                      value: formattedAmount * tokenPrice,
+                      usdPrice: tokenPrice,
+                      tokenId
                     });
                   } catch (err) {
                     console.error("Error processing token:", err);
@@ -185,9 +246,11 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             
             walletsWithData.push(updatedWallet);
             
-            // Add wallet balance to total
-            const walletValue = balanceInALPH + tokens.reduce((sum, token) => sum + token.value, 0);
-            total += walletValue;
+            // Add wallet balance to total (convert ALPH to USD)
+            const alphValue = balanceInALPH * (currentPrice || 0.82);
+            const tokensValue = tokens.reduce((sum, token) => sum + token.value, 0);
+            
+            total += alphValue + tokensValue;
           } catch (error) {
             console.error("Error loading wallet data:", error);
             
@@ -206,31 +269,18 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
               lastUpdated: now
             });
             
-            // Add wallet value to total
-            const walletValue = balance + tokens.reduce((sum, token) => sum + token.value, 0);
-            total += walletValue;
+            // Add wallet value to total (convert ALPH to USD)
+            const alphValue = balance * (currentPrice || 0.82);
+            const tokensValue = tokens.reduce((sum, token) => sum + token.value, 0);
+            
+            total += alphValue + tokensValue;
           }
         }
-      } else {
-        // For non-Alephium wallets, use calculated data
-        walletsWithData = walletData.map((wallet: WalletData) => {
-          const balance = wallet.balance || calculateBalanceFromAddress(wallet.address, ecosystem);
-          const tokens = wallet.tokens || generateTokensFromAddress(wallet.address, ecosystem);
-          
-          const walletValue = balance + tokens.reduce((sum, token) => sum + token.value, 0);
-          total += walletValue;
-          
-          return {
-            ...wallet,
-            balance,
-            tokens,
-            lastUpdated: Date.now()
-          };
-        });
-      }
-      
-      // Aggregate data across all wallets
-      if (ecosystem === 'alephium') {
+        
+        // Update token values with latest price data
+        walletsWithData = updateTokenValuesWithPriceData(walletsWithData);
+        
+        // Aggregate data across all wallets
         const tokensMap: Record<string, TokenData> = {};
         const nftsArray: NFTData[] = [];
         const poolsArray: PoolData[] = [];
@@ -241,6 +291,10 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             if (tokensMap[token.symbol]) {
               tokensMap[token.symbol].balance += token.balance;
               tokensMap[token.symbol].value += token.value;
+              tokensMap[token.symbol].usdPrice = token.usdPrice;
+              if (!tokensMap[token.symbol].tokenId && token.tokenId) {
+                tokensMap[token.symbol].tokenId = token.tokenId;
+              }
             } else {
               tokensMap[token.symbol] = { ...token };
             }
@@ -262,6 +316,22 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         setAggregatedTokens(tokensMap);
         setAggregatedNFTs(nftsArray);
         setAggregatedPools(poolsArray);
+      } else {
+        // For non-Alephium wallets, use calculated data
+        walletsWithData = walletData.map((wallet: WalletData) => {
+          const balance = wallet.balance || calculateBalanceFromAddress(wallet.address, ecosystem);
+          const tokens = wallet.tokens || generateTokensFromAddress(wallet.address, ecosystem);
+          
+          const walletValue = balance + tokens.reduce((sum, token) => sum + token.value, 0);
+          total += walletValue;
+          
+          return {
+            ...wallet,
+            balance,
+            tokens,
+            lastUpdated: Date.now()
+          };
+        });
       }
       
       // Save updated wallet data back to localStorage
@@ -483,7 +553,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
               <div className="text-sm text-muted-foreground">Total Value</div>
               <div className="text-2xl font-medium">${totalValue.toFixed(2)}</div>
               <div className="mt-1 text-xs text-muted-foreground">
-                {ecosystem === 'alephium' && `≈ ${(totalValue / currentPrice).toFixed(2)} ALPH`}
+                {ecosystem === 'alephium' && currentPrice > 0 && `≈ ${(totalValue / currentPrice).toFixed(2)} ALPH`}
               </div>
             </div>
             
@@ -552,271 +622,170 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
         </CardContent>
       </Card>
 
-      {/* Wallets List Section with Tabs */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium">Your {ecosystem.charAt(0).toUpperCase() + ecosystem.slice(1)} Wallets</h3>
-      
-        {walletsLoaded && wallets.length === 0 ? (
-          <div className="text-center py-10 border border-dashed rounded-md dark:border-white/20">
-            <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground mb-4">No wallets added yet</p>
-            <Button disabled={!isAuthenticated} className="dark:bg-nostr-dark dark:border-white/20">
-              <FilePlus className="mr-2 h-4 w-4" />
-              Add Wallet
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Individual Wallet Cards */}
-            {wallets.map((wallet) => (
-              <Card key={wallet.id} className="dark:bg-nostr-dark dark:border-white/20">
-                <CardContent className="pt-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-muted dark:bg-black/30 flex items-center justify-center mr-3">
-                        <Wallet className="h-5 w-5 text-nostr-blue" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{formatAddress(wallet.address)}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {wallet.balance?.toFixed(4)} {getCurrencySymbol(ecosystem)}
-                        </p>
-                      </div>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => confirmDeleteWallet(wallet.id)}
-                      className="h-8 w-8 dark:hover:bg-white/5"
-                    >
-                      <Trash className="h-4 w-4 text-muted-foreground" />
-                    </Button>
+      {/* Wallets List Section - Now in a unified table */}
+      {ecosystem === 'alephium' && (
+        <Card className="dark:bg-nostr-dark dark:border-white/20">
+          <CardHeader>
+            <CardTitle className="text-lg font-medium flex items-center">
+              <Wallet className="mr-2 h-5 w-5" />
+              Your Alephium Wallets
+            </CardTitle>
+            <CardDescription>
+              All your tracked wallets in one place
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {walletsLoaded && wallets.length === 0 ? (
+              <div className="text-center py-10 border border-dashed rounded-md dark:border-white/20">
+                <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground mb-4">No wallets added yet</p>
+                <Button disabled={!isAuthenticated} className="dark:bg-nostr-dark dark:border-white/20">
+                  <FilePlus className="mr-2 h-4 w-4" />
+                  Add Wallet
+                </Button>
+              </div>
+            ) : (
+              <Tabs defaultValue="wallets" className="w-full">
+                <TabsList className="w-full dark:bg-nostr-dark mb-3 grid grid-cols-3">
+                  <TabsTrigger value="wallets" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
+                    <Wallet className="h-3 w-3 mr-1" />
+                    Wallets
+                  </TabsTrigger>
+                  <TabsTrigger value="tokens" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
+                    <CircleDollarSign className="h-3 w-3 mr-1" />
+                    Tokens
+                  </TabsTrigger>
+                  <TabsTrigger value="combined" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
+                    <Coins className="h-3 w-3 mr-1" />
+                    All Assets
+                  </TabsTrigger>
+                </TabsList>
+                
+                {/* Wallets Tab - Simple list of wallets */}
+                <TabsContent value="wallets" className="mt-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Wallet</TableHead>
+                        <TableHead>Balance (ALPH)</TableHead>
+                        <TableHead>Value (USD)</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {wallets.map(wallet => (
+                        <TableRow key={wallet.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 w-8 rounded-full bg-nostr-blue/20 flex items-center justify-center">
+                                <Wallet className="h-4 w-4 text-nostr-blue" />
+                              </div>
+                              <div className="font-mono">{formatAddress(wallet.address)}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{wallet.balance?.toFixed(4)}</TableCell>
+                          <TableCell>${(wallet.balance || 0) * (currentPrice || 0.82)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => confirmDeleteWallet(wallet.id)}
+                              className="h-8 w-8 dark:hover:bg-white/5"
+                            >
+                              <Trash className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TabsContent>
+                
+                {/* Tokens Tab - Consolidated view of all tokens */}
+                <TabsContent value="tokens" className="mt-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Token</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Price (USD)</TableHead>
+                        <TableHead className="text-right">Total Value</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Object.values(aggregatedTokens).map((token, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Circle className="h-4 w-4 text-nostr-blue" />
+                              <span>{token.symbol}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{token.balance.toFixed(4)}</TableCell>
+                          <TableCell>${token.usdPrice?.toFixed(4) || "0.0000"}</TableCell>
+                          <TableCell className="text-right">${token.value.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="text-xs text-muted-foreground text-right mt-2">
+                    {loadingPrices ? "Loading prices..." : "Prices from CoinGecko"}
                   </div>
-                  
-                  {/* Wallet Data Tabs */}
-                  {ecosystem === 'alephium' && (
-                    <div className="mt-4 pt-4 border-t dark:border-white/10">
-                      <Tabs defaultValue="tokens" className="w-full">
-                        <TabsList className="w-full dark:bg-nostr-dark mb-3 grid grid-cols-3">
-                          <TabsTrigger value="tokens" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
-                            <CircleDollarSign className="h-3 w-3 mr-1" />
-                            Tokens
-                          </TabsTrigger>
-                          <TabsTrigger value="nfts" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
-                            <Layers className="h-3 w-3 mr-1" />
-                            NFTs
-                          </TabsTrigger>
-                          <TabsTrigger value="pools" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
-                            <BarChart3 className="h-3 w-3 mr-1" />
-                            Pools
-                          </TabsTrigger>
-                        </TabsList>
-                        
-                        {/* Tokens Tab Content */}
-                        <TabsContent value="tokens" className="mt-0">
-                          {wallet.tokens && wallet.tokens.length > 0 ? (
-                            <div className="space-y-2">
-                              {wallet.tokens.map((token, idx) => (
-                                <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
-                                  <div className="flex items-center">
-                                    <Circle className="h-4 w-4 mr-2 text-nostr-blue" />
-                                    <span>{token.symbol}</span>
-                                  </div>
-                                  <div className="text-sm">
-                                    <div>{token.balance.toFixed(2)}</div>
-                                    <div className="text-muted-foreground text-xs">${token.value.toFixed(2)}</div>
-                                  </div>
-                                </div>
-                              ))}
+                </TabsContent>
+                
+                {/* Combined Assets Tab - All assets in one place */}
+                <TabsContent value="combined" className="mt-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Wallet</TableHead>
+                        <TableHead>Asset</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead className="text-right">Value (USD)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {wallets.flatMap(wallet => [
+                        // Add a row for ALPH balance
+                        <TableRow key={`${wallet.id}-alph`}>
+                          <TableCell rowSpan={1 + (wallet.tokens?.length || 0)}>
+                            {formatAddress(wallet.address)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Circle className="h-4 w-4 text-green-500" />
+                              <span>ALPH</span>
                             </div>
-                          ) : (
-                            <div className="text-center py-3 text-sm text-muted-foreground">
-                              No tokens found in this wallet
-                            </div>
-                          )}
-                        </TabsContent>
-                        
-                        {/* NFTs Tab Content */}
-                        <TabsContent value="nfts" className="mt-0">
-                          {wallet.nfts && wallet.nfts.length > 0 ? (
-                            <div className="space-y-2">
-                              {wallet.nfts.map((nft, idx) => (
-                                <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
-                                  <div className="flex items-center">
-                                    <div className="h-8 w-8 rounded bg-nostr-blue/20 flex items-center justify-center mr-2 text-xs">
-                                      NFT
-                                    </div>
-                                    <div>
-                                      <div className="text-sm">{nft.name}</div>
-                                      <div className="text-xs text-muted-foreground">{nft.collection}</div>
-                                    </div>
-                                  </div>
-                                  <div className="text-sm">
-                                    <div className="text-muted-foreground text-xs">Floor</div>
-                                    <div>{nft.floorPrice.toFixed(2)} ALPH</div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-3 text-sm text-muted-foreground">
-                              No NFTs found in this wallet
-                            </div>
-                          )}
-                        </TabsContent>
-                        
-                        {/* Pools Tab Content */}
-                        <TabsContent value="pools" className="mt-0">
-                          {wallet.pools && wallet.pools.length > 0 ? (
-                            <div className="space-y-2">
-                              {wallet.pools.map((pool, idx) => (
-                                <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
-                                  <div>
-                                    <div className="text-sm font-medium">{pool.name}</div>
-                                    <div className="flex space-x-1 text-xs text-muted-foreground">
-                                      <span>{pool.token1}</span>
-                                      <span>/</span>
-                                      <span>{pool.token2}</span>
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-sm">${pool.liquidity.toLocaleString()}</div>
-                                    <div className="text-xs text-green-500">APR: {pool.apr.toFixed(1)}%</div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-3 text-sm text-muted-foreground">
-                              No liquidity pools found for this wallet
-                            </div>
-                          )}
-                        </TabsContent>
-                      </Tabs>
-                    </div>
-                  )}
-                  
-                  {/* Last Updated Indicator - show only for Alephium wallets */}
-                  {ecosystem === 'alephium' && wallet.lastUpdated && (
-                    <div className="mt-3 text-xs text-muted-foreground text-right">
-                      Updated: {new Date(wallet.lastUpdated).toLocaleString()}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-            
-            {/* Aggregated Data Section - Only for Alephium with multiple wallets */}
-            {ecosystem === 'alephium' && wallets.length > 1 && (
-              <Card className="dark:bg-nostr-dark dark:border-white/20">
-                <CardHeader>
-                  <CardTitle className="text-base">Aggregated Assets</CardTitle>
-                  <CardDescription>Combined assets across all your wallets</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Tabs defaultValue="tokens">
-                    <TabsList className="w-full dark:bg-nostr-dark mb-3 grid grid-cols-3">
-                      <TabsTrigger value="tokens" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
-                        <CircleDollarSign className="h-3 w-3 mr-1" />
-                        All Tokens
-                      </TabsTrigger>
-                      <TabsTrigger value="nfts" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
-                        <Layers className="h-3 w-3 mr-1" />
-                        All NFTs
-                      </TabsTrigger>
-                      <TabsTrigger value="pools" className="data-[state=active]:dark:bg-nostr-blue data-[state=active]:dark:text-white">
-                        <BarChart3 className="h-3 w-3 mr-1" />
-                        All Pools
-                      </TabsTrigger>
-                    </TabsList>
-                    
-                    {/* Aggregated Tokens Tab */}
-                    <TabsContent value="tokens" className="mt-0">
-                      {Object.keys(aggregatedTokens).length > 0 ? (
-                        <div className="space-y-2">
-                          {Object.values(aggregatedTokens).map((token, idx) => (
-                            <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
-                              <div className="flex items-center">
-                                <Circle className="h-4 w-4 mr-2 text-nostr-blue" />
+                          </TableCell>
+                          <TableCell>{wallet.balance?.toFixed(4)}</TableCell>
+                          <TableCell className="text-right">
+                            ${((wallet.balance || 0) * (currentPrice || 0.82)).toFixed(2)}
+                          </TableCell>
+                        </TableRow>,
+                        // Add rows for tokens
+                        ...(wallet.tokens?.map((token, idx) => (
+                          <TableRow key={`${wallet.id}-token-${idx}`}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Circle className="h-4 w-4 text-purple-500" />
                                 <span>{token.symbol}</span>
                               </div>
-                              <div className="text-sm">
-                                <div>{token.balance.toFixed(2)}</div>
-                                <div className="text-muted-foreground text-xs">${token.value.toFixed(2)}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-3 text-sm text-muted-foreground">
-                          No tokens found across wallets
-                        </div>
-                      )}
-                    </TabsContent>
-                    
-                    {/* Aggregated NFTs Tab */}
-                    <TabsContent value="nfts" className="mt-0">
-                      {aggregatedNFTs.length > 0 ? (
-                        <div className="space-y-2">
-                          {aggregatedNFTs.map((nft, idx) => (
-                            <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
-                              <div className="flex items-center">
-                                <div className="h-8 w-8 rounded bg-nostr-blue/20 flex items-center justify-center mr-2 text-xs">
-                                  NFT
-                                </div>
-                                <div>
-                                  <div className="text-sm">{nft.name}</div>
-                                  <div className="text-xs text-muted-foreground">{nft.collection}</div>
-                                </div>
-                              </div>
-                              <div className="text-sm">
-                                <div className="text-muted-foreground text-xs">Floor</div>
-                                <div>{nft.floorPrice.toFixed(2)} ALPH</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-3 text-sm text-muted-foreground">
-                          No NFTs found across wallets
-                        </div>
-                      )}
-                    </TabsContent>
-                    
-                    {/* Aggregated Pools Tab */}
-                    <TabsContent value="pools" className="mt-0">
-                      {aggregatedPools.length > 0 ? (
-                        <div className="space-y-2">
-                          {aggregatedPools.map((pool, idx) => (
-                            <div key={idx} className="flex justify-between items-center p-2 rounded-md bg-muted/50 dark:bg-black/20">
-                              <div>
-                                <div className="text-sm font-medium">{pool.name}</div>
-                                <div className="flex space-x-1 text-xs text-muted-foreground">
-                                  <span>{pool.token1}</span>
-                                  <span>/</span>
-                                  <span>{pool.token2}</span>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-sm">${pool.liquidity.toLocaleString()}</div>
-                                <div className="text-xs text-green-500">APR: {pool.apr.toFixed(1)}%</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-3 text-sm text-muted-foreground">
-                          No liquidity pools found across wallets
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
+                            </TableCell>
+                            <TableCell>{token.balance.toFixed(4)}</TableCell>
+                            <TableCell className="text-right">
+                              ${token.value.toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        )) || [])
+                      ])}
+                    </TableBody>
+                  </Table>
+                </TabsContent>
+              </Tabs>
             )}
-          </div>
-        )}
-      </div>
+          </CardContent>
+        </Card>
+      )}
       
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmDialogOpen} onOpenChange={setDeleteConfirmDialogOpen}>
