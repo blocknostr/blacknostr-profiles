@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Wallet, FilePlus, Trash, Circle, TrendingUp, CircleDollarSign, BarChart3, Coins } from "lucide-react";
+import { Wallet, FilePlus, Trash, Circle, TrendingUp, CircleDollarSign, BarChart3, Coins, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useNostr } from "@/contexts/NostrContext";
 import { toast } from "@/components/ui/use-toast";
@@ -98,8 +98,8 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
     } catch (error) {
       console.error("Error fetching price data:", error);
       // Fallback values
-      setCurrentPrice(0.82);
-      setPriceChange24h(2.3);
+      setCurrentPrice(0.38);
+      setPriceChange24h(-0.5);
     } finally {
       setLoadingPrices(false);
     }
@@ -119,7 +119,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
           usdPrice = priceData.alphbanx?.usd || 0.05; // Fallback price
         } else {
           // Default price for other tokens
-          usdPrice = token.value / token.balance || 0.01;
+          usdPrice = (token.balance > 0) ? (token.value / token.balance) || 0.01 : 0.01;
         }
         
         return {
@@ -159,7 +159,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             walletsWithData.push(wallet);
             
             // Add wallet balance to total
-            const walletValue = (wallet.balance || 0) * (currentPrice || 0.82) + 
+            const walletValue = (wallet.balance || 0) * (currentPrice || 0.38) + 
               ((wallet.tokens || []).reduce((sum, token) => sum + (token.value || 0), 0));
             total += walletValue;
             continue;
@@ -206,7 +206,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
                     let tokenPrice = 0.01; // Default fallback price
                     
                     if (symbol.toLowerCase() === 'alph') {
-                      tokenPrice = currentPrice || 0.82;
+                      tokenPrice = currentPrice || 0.38;
                     } else if (symbol.toLowerCase() === 'abx') {
                       tokenPrice = priceData.alphbanx?.usd || 0.05;
                     }
@@ -248,7 +248,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             walletsWithData.push(updatedWallet);
             
             // Add wallet balance to total (convert ALPH to USD)
-            const alphValue = balanceInALPH * (currentPrice || 0.82);
+            const alphValue = balanceInALPH * (currentPrice || 0.38);
             const tokensValue = tokens.reduce((sum, token) => sum + (token.value || 0), 0);
             
             total += alphValue + tokensValue;
@@ -271,7 +271,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             });
             
             // Add wallet value to total (convert ALPH to USD)
-            const alphValue = balance * (currentPrice || 0.82);
+            const alphValue = balance * (currentPrice || 0.38);
             const tokensValue = tokens.reduce((sum, token) => sum + (token.value || 0), 0);
             
             total += alphValue + tokensValue;
@@ -610,16 +610,6 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
               </div>
             </div>
           )}
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={refreshPortfolioData}
-            className="w-full dark:border-white/20 mt-4"
-            disabled={loading}
-          >
-            {loading ? "Refreshing..." : "Refresh Portfolio Data"}
-          </Button>
         </CardContent>
       </Card>
 
@@ -627,9 +617,21 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
       {ecosystem === 'alephium' && (
         <Card className="dark:bg-nostr-dark dark:border-white/20">
           <CardHeader>
-            <CardTitle className="text-lg font-medium flex items-center">
-              <Wallet className="mr-2 h-5 w-5" />
-              Your Alephium Wallets
+            <CardTitle className="text-lg font-medium flex items-center justify-between">
+              <div className="flex items-center">
+                <Wallet className="mr-2 h-5 w-5" />
+                Your Alephium Wallets
+              </div>
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={refreshPortfolioData}
+                disabled={loading}
+                className="h-8 w-8 ml-auto mr-2 dark:bg-nostr-dark dark:border-white/20"
+                title="Refresh portfolio data"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
             </CardTitle>
             <CardDescription>
               All your tracked wallets in one place

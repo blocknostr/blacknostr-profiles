@@ -61,7 +61,7 @@ export const getMockPriceData = (coinIds: string[]): any => {
         change = Math.random() * 8 - 4; // -4% to +4%
         break;
       case 'alephium':
-        price = 0.82 + Math.random() * 0.05;
+        price = 0.38 + Math.random() * 0.05; // Updated to more accurate price range
         change = Math.random() * 10 - 5; // -5% to +5%
         break;
       case 'alphbanx':
