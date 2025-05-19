@@ -6,12 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageSquare, Repeat, Share } from "lucide-react";
 import { NostrNote, NostrProfile, formatTimestamp } from "@/lib/nostr";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface NoteCardProps {
   note: NostrNote;
@@ -21,7 +15,7 @@ interface NoteCardProps {
 export default function NoteCard({ note, authorProfile }: NoteCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isReposted, setIsReposted] = useState(false);
-  const { likeNote, repostNote, followUser } = useNostr();
+  const { likeNote, repostNote } = useNostr();
 
   // Format relative time (e.g. "2h ago")
   const formatRelativeTime = (timestamp: number) => {
@@ -38,76 +32,31 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
   };
 
   const handleLike = async () => {
-    const success = await likeNote(note.id);
-    if (success) {
-      setIsLiked(true);
-    }
+    setIsLiked(!isLiked);
+    await likeNote(note.id);
   };
 
   const handleRepost = async () => {
-    const success = await repostNote(note.id);
-    if (success) {
-      setIsReposted(true);
-    }
-  };
-
-  const handleFollow = async () => {
-    if (!authorProfile) return;
-    await followUser(authorProfile.pubkey);
+    setIsReposted(!isReposted);
+    await repostNote(note.id);
   };
 
   const displayName = authorProfile?.displayName || authorProfile?.name || "Anonymous";
   const username = authorProfile?.npub ? `${authorProfile.npub.substring(0, 8)}...` : "";
   const avatarUrl = authorProfile?.picture || "";
 
-  // Process content for display - handle links, hashtags, mentions
-  const processContent = (content: string) => {
-    // Replace URLs with clickable links
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    let processedContent = content.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">$1</a>');
-    
-    // Replace hashtags with clickable links
-    const hashtagRegex = /(#\w+)/g;
-    processedContent = processedContent.replace(hashtagRegex, '<span class="text-blue-500 hover:underline">$1</span>');
-    
-    // Replace mentions with clickable links
-    const mentionRegex = /(@\w+)/g;
-    processedContent = processedContent.replace(mentionRegex, '<span class="text-blue-500 hover:underline">$1</span>');
-    
-    return processedContent;
-  };
-
   return (
-    <Card className="mb-4 hover:bg-accent/5 transition-colors dark:bg-nostr-cardBg">
+    <Card className="mb-4 hover:bg-accent/5 transition-colors">
       <CardHeader className="p-4 pb-0">
         <div className="flex items-start space-x-3">
           <Avatar>
             <AvatarImage src={avatarUrl} alt={displayName} />
-            <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
             <div className="flex justify-between items-start">
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-sm">{displayName}</p>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 px-2 text-xs text-muted-foreground hover:bg-primary/10"
-                          onClick={handleFollow}
-                        >
-                          Follow
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Follow this user</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
+              <div>
+                <p className="font-medium text-sm">{displayName}</p>
                 <p className="text-xs text-muted-foreground">{username}</p>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -118,10 +67,7 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-2">
-        <div 
-          className="whitespace-pre-wrap" 
-          dangerouslySetInnerHTML={{ __html: processContent(note.content) }} 
-        />
+        <p className="whitespace-pre-wrap">{note.content}</p>
       </CardContent>
       <CardFooter className="p-2 pt-0 flex justify-between">
         <Button variant="ghost" size="sm">
