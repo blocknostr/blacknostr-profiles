@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -8,12 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { nip19 } from "nostr-tools";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Light as SyntaxHighlighter } from "react-syntax-highlighter";
 import { atomOneDark, atomOneLight } from "react-syntax-highlighter/dist/esm/styles/hljs";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Badge } from "@/components/ui/badge";
+import { NostrNote } from "@/lib/nostr";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Supported languages
 const LANGUAGES = [
@@ -47,12 +49,56 @@ export default function NoteBin() {
   const [language, setLanguage] = useState("plain");
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishedNoteId, setPublishedNoteId] = useState<string | null>(null);
-  const [noteIdToFetch, setNoteIdToFetch] = useState("");
+  const [archivedNotes, setArchivedNotes] = useState<{id: string; content: string; title?: string; language?: string; created_at: number}[]>([]);
+  const [isLoadingArchive, setIsLoadingArchive] = useState(false);
   const [fetchedNote, setFetchedNote] = useState<{id: string; content: string; title?: string; language?: string} | null>(null);
-  const [isFetching, setIsFetching] = useState(false);
   const { theme } = useTheme();
 
-  const { publishNote, fetchSingleNote, isAuthenticated } = useNostr();
+  const { publishNote, fetchNotes, fetchSingleNote, isAuthenticated } = useNostr();
+
+  // Fetch archived notes when component mounts or tab changes
+  useEffect(() => {
+    const loadArchivedNotes = async () => {
+      setIsLoadingArchive(true);
+      try {
+        const notes = await fetchNotes();
+        
+        // Filter and format notes to find NIP-23 "notebin" notes (looking for language tags)
+        const notebinNotes = notes
+          .filter(note => {
+            // Check if this note has a language tag, which indicates it's a notebin note
+            return note.tags.some(tag => tag[0] === "l");
+          })
+          .map(note => {
+            // Get title and language from tags if they exist
+            const titleTag = note.tags.find(tag => tag[0] === "title");
+            const languageTag = note.tags.find(tag => tag[0] === "l");
+            
+            return {
+              id: note.id,
+              content: note.content,
+              title: titleTag ? titleTag[1] : undefined,
+              language: languageTag ? languageTag[1] : "plain",
+              created_at: note.created_at
+            };
+          })
+          .sort((a, b) => b.created_at - a.created_at); // Sort by newest first
+          
+        setArchivedNotes(notebinNotes);
+      } catch (error) {
+        console.error("Error loading archived notes:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load archived notes",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingArchive(false);
+      }
+    };
+
+    loadArchivedNotes();
+  }, [fetchNotes, publishedNoteId]); // Also reload when a new note is published
 
   const handlePublish = async () => {
     if (!content.trim()) {
@@ -111,32 +157,9 @@ export default function NoteBin() {
     }
   };
 
-  const handleFetch = async () => {
-    if (!noteIdToFetch.trim()) {
-      toast({
-        title: "Missing note ID",
-        description: "Please enter a valid note ID",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsFetching(true);
-    
+  const handleViewNote = async (noteId: string) => {
     try {
-      // Handle both hex and bech32 note IDs (per NIP-19)
-      let hexId = noteIdToFetch;
-      
-      if (noteIdToFetch.startsWith("note1")) {
-        try {
-          const { data } = nip19.decode(noteIdToFetch);
-          hexId = data as string;
-        } catch (error) {
-          throw new Error("Invalid note ID format");
-        }
-      }
-      
-      const note = await fetchSingleNote(hexId);
+      const note = await fetchSingleNote(noteId);
       
       if (note) {
         // Find title tag if it exists
@@ -153,28 +176,24 @@ export default function NoteBin() {
           title,
           language
         });
-      } else {
-        toast({
-          title: "Note not found",
-          description: "Could not find a note with that ID",
-          variant: "destructive",
-        });
       }
     } catch (error) {
       console.error("Error fetching note:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred while fetching the note",
+        description: "An error occurred while fetching the note",
         variant: "destructive",
       });
-    } finally {
-      setIsFetching(false);
     }
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ description: "Copied to clipboard" });
+  };
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp * 1000).toLocaleString();
   };
 
   // Get the correct syntax highlighting style based on theme
@@ -184,7 +203,7 @@ export default function NoteBin() {
     <Tabs defaultValue="create" className="w-full">
       <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="create">Create Note</TabsTrigger>
-        <TabsTrigger value="get">Get Note</TabsTrigger>
+        <TabsTrigger value="archive">Archive</TabsTrigger>
       </TabsList>
       
       <TabsContent value="create" className="mt-4">
@@ -277,99 +296,125 @@ export default function NoteBin() {
         )}
       </TabsContent>
       
-      <TabsContent value="get" className="mt-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Get a Note</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="noteId">Note ID</Label>
-                <div className="flex">
-                  <Input
-                    id="noteId"
-                    placeholder="Enter note ID (hex or bech32)"
-                    value={noteIdToFetch}
-                    onChange={(e) => setNoteIdToFetch(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button 
-                    className="ml-2" 
-                    onClick={handleFetch}
-                    disabled={isFetching || !noteIdToFetch.trim()}
+      <TabsContent value="archive" className="mt-4">
+        {fetchedNote ? (
+          <div className="space-y-4">
+            <Button 
+              variant="outline"
+              onClick={() => setFetchedNote(null)}
+              className="mb-4"
+            >
+              Back to Archive
+            </Button>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>{fetchedNote.title || "Untitled Note"}</span>
+                  {fetchedNote.language && fetchedNote.language !== "plain" && (
+                    <Badge className="text-xs" variant="outline">
+                      {LANGUAGES.find(l => l.value === fetchedNote.language)?.label || fetchedNote.language}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {fetchedNote.language && fetchedNote.language !== "plain" ? (
+                  <SyntaxHighlighter
+                    language={fetchedNote.language}
+                    style={syntaxStyle}
+                    className="rounded-md text-sm"
+                    customStyle={{
+                      padding: '1rem',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.875rem',
+                    }}
                   >
-                    Fetch
+                    {fetchedNote.content}
+                  </SyntaxHighlighter>
+                ) : (
+                  <pre className="whitespace-pre-wrap bg-secondary p-4 rounded-md overflow-x-auto font-mono text-sm">
+                    {fetchedNote.content}
+                  </pre>
+                )}
+              </CardContent>
+              <CardFooter>
+                <div className="flex space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => copyToClipboard(fetchedNote.content)}
+                  >
+                    Copy Content
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setContent(fetchedNote.content);
+                      setTitle(fetchedNote.title || "");
+                      setLanguage(fetchedNote.language || "plain");
+                      setFetchedNote(null);
+                      document.querySelector('[value="create"]')?.dispatchEvent(new Event('click'));
+                    }}
+                  >
+                    Edit Note
                   </Button>
                 </div>
+              </CardFooter>
+            </Card>
+          </div>
+        ) : (
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Your Notes</h2>
+            
+            {isLoadingArchive ? (
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Card key={i} className="hover:bg-accent/5 transition-colors">
+                    <CardHeader className="pb-2">
+                      <Skeleton className="h-6 w-32" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-24 w-full" />
+                      <div className="mt-2">
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        {isFetching ? (
-          <Card className="mt-4">
-            <CardContent className="p-4">
-              <Skeleton className="h-6 w-1/3 mb-4" />
-              <Skeleton className="h-[300px] w-full" />
-            </CardContent>
-          </Card>
-        ) : fetchedNote && (
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>{fetchedNote.title || "Untitled Note"}</span>
-                {fetchedNote.language && fetchedNote.language !== "plain" && (
-                  <Badge className="text-xs" variant="outline">
-                    {LANGUAGES.find(l => l.value === fetchedNote.language)?.label || fetchedNote.language}
-                  </Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {fetchedNote.language && fetchedNote.language !== "plain" ? (
-                <SyntaxHighlighter
-                  language={fetchedNote.language}
-                  style={syntaxStyle}
-                  className="rounded-md text-sm"
-                  customStyle={{
-                    padding: '1rem',
-                    borderRadius: '0.375rem',
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  {fetchedNote.content}
-                </SyntaxHighlighter>
-              ) : (
-                <pre className="whitespace-pre-wrap bg-secondary p-4 rounded-md overflow-x-auto font-mono text-sm">
-                  {fetchedNote.content}
-                </pre>
-              )}
-            </CardContent>
-            <CardFooter>
-              <div className="flex space-x-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => copyToClipboard(fetchedNote.content)}
-                >
-                  Copy Content
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => {
-                    setContent(fetchedNote.content);
-                    setTitle(fetchedNote.title || "");
-                    setLanguage(fetchedNote.language || "plain");
-                    setNoteIdToFetch("");
-                    setFetchedNote(null);
-                    document.querySelector('[value="create"]')?.dispatchEvent(new Event('click'));
-                  }}
-                >
-                  Edit Note
-                </Button>
+            ) : archivedNotes.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No notes found. Create a note to get started!</p>
+            ) : (
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                {archivedNotes.map((note) => (
+                  <Card 
+                    key={note.id} 
+                    className="hover:bg-accent/5 transition-colors cursor-pointer" 
+                    onClick={() => handleViewNote(note.id)}
+                  >
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center justify-between">
+                        <span className="truncate">{note.title || "Untitled Note"}</span>
+                        {note.language && note.language !== "plain" && (
+                          <Badge className="text-xs" variant="outline">
+                            {LANGUAGES.find(l => l.value === note.language)?.label || note.language}
+                          </Badge>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="line-clamp-3 text-sm text-muted-foreground font-mono">
+                        {note.content}
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        {formatDate(note.created_at)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            </CardFooter>
-          </Card>
+            )}
+          </div>
         )}
       </TabsContent>
     </Tabs>
