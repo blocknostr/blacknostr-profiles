@@ -148,6 +148,7 @@ const Notifications = () => {
           }
         });
         
+        // Fixed type predicate to correctly type check for Notification
         const processedNotifications = (await Promise.all(notificationPromises))
           .filter((n): n is Notification => n !== null)
           .sort((a, b) => b.created_at - a.created_at);
