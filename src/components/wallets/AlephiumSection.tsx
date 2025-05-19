@@ -7,8 +7,8 @@ import { Wallet, Network, ArrowRight, Star, Medal, LineChart, TrendingUp } from 
 import { useWallet } from '@alephium/web3-react';
 
 interface AlephiumBalanceData {
-  balance: number;
-  lockedBalance: number;
+  balance: string; // Changed from number to string to match API response
+  lockedBalance: string; // Changed from number to string
   utxoNum: number;
 }
 
@@ -219,11 +219,17 @@ const AlephiumSection = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Balance:</p>
-                  <p className="font-medium">{balance.balance.toFixed(4)} ALPH</p>
+                  <p className="font-medium">
+                    {/* Convert balance from nanoALPH to ALPH (division by 10^18) */}
+                    {(parseFloat(balance.balance) / 10**18).toFixed(4)} ALPH
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Locked Balance:</p>
-                  <p className="font-medium">{balance.lockedBalance.toFixed(4)} ALPH</p>
+                  <p className="font-medium">
+                    {/* Convert locked balance from nanoALPH to ALPH (division by 10^18) */}
+                    {(parseFloat(balance.lockedBalance) / 10**18).toFixed(4)} ALPH
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">UTXO Count:</p>
