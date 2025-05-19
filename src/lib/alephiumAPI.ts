@@ -1,7 +1,3 @@
-
-// Update any methods to account for the correct API response structure
-// Add getAddressTokens method if it doesn't exist
-
 const BASE_MAINNET_URL = 'https://node.mainnet.alephium.org';
 const EXPLORER_API_URL = 'https://backend.mainnet.alephium.org';
 
@@ -94,7 +90,7 @@ const alephiumAPI = {
     }
   },
 
-  // Adding the missing fetchNetworkStats method
+  // Fixing the fetchNetworkStats method
   fetchNetworkStats: async (): Promise<NetworkStats> => {
     try {
       // Try to fetch real data from the API
@@ -102,49 +98,34 @@ const alephiumAPI = {
       const blocksPromise = fetch(`${BASE_MAINNET_URL}/blockflow/blocks?limit=5`).then(res => res.json());
       const infoPromise = fetch(`${BASE_MAINNET_URL}/infos`).then(res => res.json());
       
-      const [hashRateData, blocksData, infoData] = await Promise.all([
-        hashRatePromise, blocksData, infoPromise
-      ]).catch(() => [null, null, null]);
-      
-      // If real data fetching fails, return sample data
-      if (!hashRateData || !blocksData || !infoData) {
+      try {
+        const [hashRateData, blocksData, infoData] = await Promise.all([
+          hashRatePromise, blocksPromise, infoPromise
+        ]);
+        
+        // Process real data
         return {
-          hashRate: "138.21 PH/s",
-          difficulty: "5.83 P",
-          blockTime: "64.0 seconds",
-          activeAddresses: 24850,
-          tokenCount: 1245,
-          totalTransactions: "2.85M",
-          totalSupply: "121.5M ALPH",
-          totalBlocks: "1.84M",
-          latestBlocks: [
-            { hash: "000001c2a8ab25f87e84235749d6b8156", timestamp: Date.now() - 120000, height: 1843621, txNumber: 3 },
-            { hash: "000001c2a81f9ae8059c384d52450a7b", timestamp: Date.now() - 180000, height: 1843620, txNumber: 2 },
-            { hash: "000001c2a81c7e0d83a94c71f3b42a91", timestamp: Date.now() - 240000, height: 1843619, txNumber: 5 },
-            { hash: "000001c2a73a5f9c8e92845d73c1b354", timestamp: Date.now() - 300000, height: 1843618, txNumber: 1 },
-            { hash: "000001c2a6b043a97c01bc549a936d21", timestamp: Date.now() - 360000, height: 1843617, txNumber: 4 }
-          ],
-          isLiveData: false
+          hashRate: `${(hashRateData.hashRate / 1000000000000000).toFixed(2)} PH/s`,
+          difficulty: `${(hashRateData.difficulty / 1000000000000).toFixed(2)} P`,
+          blockTime: `${infoData.blockTargetTime} seconds`,
+          activeAddresses: infoData.activeAddresses || 24850,
+          tokenCount: infoData.tokenCount || 1245,
+          totalTransactions: `${(infoData.totalTransactions / 1000000).toFixed(2)}M`,
+          totalSupply: `${(infoData.totalSupply / 1000000).toFixed(1)}M ALPH`,
+          totalBlocks: `${(infoData.totalBlocks / 1000000).toFixed(2)}M`,
+          latestBlocks: blocksData.blocks.map((block: any) => ({
+            hash: block.hash,
+            timestamp: block.timestamp,
+            height: block.height,
+            txNumber: block.txNumber || 0
+          })),
+          isLiveData: true
         };
+      } catch (error) {
+        // If any of the API requests fail, return sample data
+        console.error('Error processing network data:', error);
+        throw error;
       }
-      
-      return {
-        hashRate: `${(hashRateData.hashRate / 1000000000000000).toFixed(2)} PH/s`,
-        difficulty: `${(hashRateData.difficulty / 1000000000000).toFixed(2)} P`,
-        blockTime: `${infoData.blockTargetTime} seconds`,
-        activeAddresses: infoData.activeAddresses || 24850,
-        tokenCount: infoData.tokenCount || 1245,
-        totalTransactions: `${(infoData.totalTransactions / 1000000).toFixed(2)}M`,
-        totalSupply: `${(infoData.totalSupply / 1000000).toFixed(1)}M ALPH`,
-        totalBlocks: `${(infoData.totalBlocks / 1000000).toFixed(2)}M`,
-        latestBlocks: blocksData.blocks.map((block: any) => ({
-          hash: block.hash,
-          timestamp: block.timestamp,
-          height: block.height,
-          txNumber: block.txNumber || 0
-        })),
-        isLiveData: true
-      };
     } catch (error) {
       console.error('Error fetching network stats:', error);
       // Return sample data if error
@@ -169,7 +150,6 @@ const alephiumAPI = {
     }
   },
 
-  // Adding the missing getNFTCollections method
   getNFTCollections: async (limit: number = 5): Promise<NFTCollection[]> => {
     try {
       // In a real implementation, this would fetch from the API
