@@ -135,7 +135,9 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       subscriptions.forEach((sub, id) => {
         if (pool && sub.sub) {
           try {
-            pool.close(sub.relays, sub.sub);
+            // FIX: Use correct method signature for pool.close()
+            // Based on nostr-tools, we should close the subscription directly
+            pool.close(sub.sub);
           } catch (err) {
             console.error(`Error closing subscription ${id}:`, err);
           }
@@ -145,6 +147,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Close the pool connection to all relays
       if (pool) {
         try {
+          // FIX: Only pass the relay URLs to pool.close()
           pool.close(relays.map(relay => relay.url));
         } catch (err) {
           console.error('Error closing relay pool:', err);
@@ -160,7 +163,9 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const subscription = subscriptions.get(subscriptionId);
     if (subscription) {
       try {
-        pool.close(subscription.relays, subscription.sub);
+        // FIX: Use correct method signature for pool.close()
+        // Use only the subscription object
+        pool.close(subscription.sub);
         setSubscriptions(prev => {
           const next = new Map(prev);
           next.delete(subscriptionId);
