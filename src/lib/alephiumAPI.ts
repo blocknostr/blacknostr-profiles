@@ -101,6 +101,23 @@ const alephiumAPI = {
       if (!blocksResponse.ok) throw new Error('Failed to fetch blocks data');
       const blocksData = await blocksResponse.json();
       
+      // Get hashrate data from infos endpoint
+      const statsResponse = await fetch(`${EXPLORER_API_URL}/infos/hashrates`);
+      if (!statsResponse.ok) throw new Error('Failed to fetch hashrate data');
+      const statsData = await statsResponse.json();
+      
+      // Get active addresses
+      const addressesResponse = await fetch(`${EXPLORER_API_URL}/infos/addresses`);
+      const addressesData = addressesResponse.ok ? await addressesResponse.json() : null;
+      
+      // Get tokens count
+      const tokensResponse = await fetch(`${EXPLORER_API_URL}/tokens?page=1&limit=1`);
+      const tokensData = tokensResponse.ok ? await tokensResponse.json() : null;
+      
+      // Get transactions count
+      const txResponse = await fetch(`${EXPLORER_API_URL}/transactions?page=1&limit=1`);
+      const txData = txResponse.ok ? await txResponse.json() : null;
+      
       // Parse latest blocks from the response
       const latestBlocks = blocksData.blocks.map((block: any) => ({
         hash: block.hash,
@@ -111,6 +128,14 @@ const alephiumAPI = {
         chainTo: block.chainTo
       }));
       
+      // Calculate hashrate in TH/s
+      const totalHashrate = statsData.reduce((sum: number, item: any) => sum + parseFloat(item.hashrate), 0);
+      const averageHashRateTH = totalHashrate / 10**12;
+      const hashRateFormatted = `${averageHashRateTH.toFixed(2)} TH/s`;
+      
+      // Calculate difficulty
+      const difficultyFormatted = `${(averageHashRateTH / 220).toFixed(2)} T`;
+      
       // Format total supply in millions
       const totalSupplyRaw = supplyData[0]?.total || "210000000000000000000000000";
       const totalSupplyInALPH = Number(totalSupplyRaw) / 10**18;
@@ -119,37 +144,41 @@ const alephiumAPI = {
       // Format circulating supply
       const circulatingSupplyRaw = supplyData[0]?.circulating || "110000000000000000000000000";
       const circulatingSupplyInALPH = Number(circulatingSupplyRaw) / 10**18;
-      const circulatingSupplyFormatted = (circulatingSupplyInALPH / 1000000).toFixed(1) + "M";
       
-      // Calculate and format total blocks
-      const totalBlocksNumber = blocksData.total || 45000000;
-      const totalBlocksFormatted = (totalBlocksNumber / 1000000).toFixed(2) + "M";
+      // Calculate total blocks and transactions
+      const totalBlocksNumber = blocksData.total || 0;
+      const totalBlocksFormatted = totalBlocksNumber > 1000000 
+        ? (totalBlocksNumber / 1000000).toFixed(2) + "M" 
+        : (totalBlocksNumber / 1000).toFixed(2) + "K";
       
-      // Calculate average block time and hash rate from the blocks data
-      let totalHashRate = 0;
-      let blockCount = 0;
+      const totalTxNumber = txData?.total || 0;
+      const totalTxFormatted = totalTxNumber > 1000000 
+        ? (totalTxNumber / 1000000).toFixed(2) + "M" 
+        : (totalTxNumber / 1000).toFixed(2) + "K";
       
-      blocksData.blocks.forEach((block: any) => {
-        if (block.hashRate) {
-          totalHashRate += Number(block.hashRate);
-          blockCount++;
+      // Get active addresses count
+      const activeAddressesCount = addressesData?.total || 28500;
+      
+      // Get token count
+      const tokenCount = tokensData?.total || 1350;
+      
+      // Calculate average block time
+      let avgBlockTime = 16.0; // Default value in seconds
+      if (latestBlocks.length > 1) {
+        let totalTime = 0;
+        for (let i = 0; i < latestBlocks.length - 1; i++) {
+          totalTime += latestBlocks[i].timestamp - latestBlocks[i+1].timestamp;
         }
-      });
-      
-      const averageHashRateRaw = blockCount > 0 ? totalHashRate / blockCount : 36000000000000000;
-      const averageHashRateTH = averageHashRateRaw / 10**12;
-      const hashRateFormatted = `${averageHashRateTH.toFixed(2)} TH/s`;
-      
-      // Difficulty is proportional to hashrate
-      const difficultyFormatted = `${(averageHashRateTH / 220).toFixed(2)} T`;
+        avgBlockTime = totalTime / (latestBlocks.length - 1) / 1000; // Convert to seconds
+      }
       
       return {
         hashRate: hashRateFormatted,
         difficulty: difficultyFormatted,
-        blockTime: "16.0 seconds",
-        activeAddresses: 28500,
-        tokenCount: 1350,
-        totalTransactions: "3.45M",
+        blockTime: `${avgBlockTime.toFixed(1)} seconds`,
+        activeAddresses: activeAddressesCount,
+        tokenCount: tokenCount,
+        totalTransactions: totalTxFormatted,
         totalSupply: totalSupplyFormatted,
         totalBlocks: totalBlocksFormatted,
         latestBlocks,
