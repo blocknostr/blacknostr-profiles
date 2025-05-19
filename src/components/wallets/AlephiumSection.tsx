@@ -30,7 +30,7 @@ interface NetworkStats {
 }
 
 const AlephiumSection = () => {
-  const { connectionStatus, requestConnection, account } = useWallet();
+  const { connectionStatus, connect, account } = useWallet();
   const [stats, setStats] = useState<NetworkStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -95,7 +95,7 @@ const AlephiumSection = () => {
           </CardHeader>
           <CardContent>
             <Button 
-              onClick={requestConnection}
+              onClick={() => connect()}
               className="bg-nostr-blue text-white hover:bg-nostr-blue/90"
             >
               Connect Wallet
