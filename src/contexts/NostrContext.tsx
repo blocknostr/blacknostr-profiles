@@ -1,6 +1,5 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
+import { SimplePool, Event, getEventHash, signEvent as nostrSignEvent } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
 import {
   DEFAULT_RELAYS,
@@ -15,7 +14,8 @@ import {
   parseNote,
   profileToMetadata,
   NOSTR_KEYS,
-  hexToNpub
+  hexToNpub,
+  NOSTR_KINDS
 } from '@/lib/nostr';
 
 interface NostrContextType {
@@ -28,17 +28,18 @@ interface NostrContextType {
   relays: NostrRelayConfig[];
   pool: SimplePool | null;
   login: (pubkey?: string) => void;
-  loginWithPrivateKey: (privateKey: string) => void;
+  loginWithPrivateKey: (privateKey: string) => Promise<boolean>;
   logout: () => void;
   createAccount: () => void;
   fetchProfile: (pubkey: string) => Promise<NostrProfile | null>;
-  fetchNotes: (pubkey?: string) => Promise<NostrNote[]>;
+  fetchNotes: (pubkey?: string, pubkeys?: string[]) => Promise<NostrNote[]>;
   updateProfile: (updatedProfile: NostrProfile) => Promise<boolean>;
   publishNote: (content: string) => Promise<boolean>;
   followUser: (pubkey: string) => Promise<boolean>;
   unfollowUser: (pubkey: string) => Promise<boolean>;
+  getFollowingList: () => Promise<string[]>;
   likeNote: (noteId: string) => Promise<boolean>;
-  repostNote: (noteId: string) => Promise<boolean>;
+  repostNote: (noteId: string, content?: string) => Promise<boolean>;
   addRelay: (url: string, read: boolean, write: boolean) => void;
   removeRelay: (url: string) => void;
   updateRelay: (url: string, read: boolean, write: boolean) => void;
@@ -65,6 +66,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [notes, setNotes] = useState<NostrNote[]>([]);
   const [relays, setRelays] = useState<NostrRelayConfig[]>(DEFAULT_RELAYS);
   const [pool, setPool] = useState<SimplePool | null>(null);
+  const [following, setFollowing] = useState<string[]>([]);
 
   // Initialize NOSTR connection
   useEffect(() => {
@@ -86,18 +88,21 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (savedPrivateKey && savedPublicKey) {
           setPrivateKey(savedPrivateKey);
           setPublicKey(savedPublicKey);
+          setNpub(hexToNpub(savedPublicKey));
           setIsAuthenticated(true);
 
           // Fetch user profile
           const userProfile = await fetchProfile(savedPublicKey);
           if (userProfile) {
             setProfile(userProfile);
-            setNpub(userProfile.npub || null);
           }
 
+          // Fetch following list
+          const followList = await fetchFollowingList(savedPublicKey);
+          setFollowing(followList);
+
           // Fetch user's notes
-          const userNotes = await fetchNotes(savedPublicKey);
-          setNotes(userNotes);
+          await fetchNotes(savedPublicKey);
         }
       } catch (error) {
         console.error('Error initializing NOSTR:', error);
@@ -115,11 +120,21 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Clean up
     return () => {
-      if (pool) pool.close(relays.map(relay => relay.url));
+      if (pool) {
+        const relayUrls = relays.map(relay => relay.url);
+        pool.close(relayUrls);
+      }
     };
   }, []);
 
-  const login = (pubkey?: string) => {
+  // Helper to extract relay URLs from NostrRelayConfig[]
+  const getRelayUrls = (relayConfigs: NostrRelayConfig[], readOnly = false): string[] => {
+    return relayConfigs
+      .filter(relay => readOnly ? relay.read : true)
+      .map(relay => relay.url);
+  };
+
+  const login = async (pubkey?: string) => {
     try {
       // If pubkey is provided, use extension login
       if (pubkey) {
@@ -136,15 +151,17 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
 
         // Fetch profile and notes
-        fetchProfile(pubkey).then(userProfile => {
-          if (userProfile) {
-            setProfile(userProfile);
-          }
-        });
+        const userProfile = await fetchProfile(pubkey);
+        if (userProfile) {
+          setProfile(userProfile);
+        }
 
-        fetchNotes(pubkey).then(userNotes => {
-          setNotes(userNotes);
-        });
+        // Fetch following list
+        const followList = await fetchFollowingList(pubkey);
+        setFollowing(followList);
+
+        // Fetch notes
+        await fetchNotes(pubkey);
         
         return;
       }
@@ -163,6 +180,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       setPrivateKey(savedPrivateKey);
       setPublicKey(savedPublicKey);
+      setNpub(hexToNpub(savedPublicKey));
       setIsAuthenticated(true);
       
       toast({
@@ -171,16 +189,17 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
 
       // Fetch profile and notes
-      fetchProfile(savedPublicKey).then(userProfile => {
-        if (userProfile) {
-          setProfile(userProfile);
-          setNpub(userProfile.npub || null);
-        }
-      });
+      const userProfile = await fetchProfile(savedPublicKey);
+      if (userProfile) {
+        setProfile(userProfile);
+      }
 
-      fetchNotes(savedPublicKey).then(userNotes => {
-        setNotes(userNotes);
-      });
+      // Fetch following list
+      const followList = await fetchFollowingList(savedPublicKey);
+      setFollowing(followList);
+
+      // Fetch notes
+      await fetchNotes(savedPublicKey);
     } catch (error) {
       console.error('Error logging in:', error);
       toast({
@@ -191,10 +210,10 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const loginWithPrivateKey = (inputPrivateKey: string) => {
+  const loginWithPrivateKey = async (inputPrivateKey: string): Promise<boolean> => {
     try {
-      // Get public key from private key
-      const derivedPublicKey = getPublicKey(inputPrivateKey);
+      // Get public key from private key using nostr-tools
+      const derivedPublicKey = getPublicKeyFromPrivate(inputPrivateKey);
       
       // Save keys
       saveKeys(inputPrivateKey);
@@ -210,15 +229,19 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
 
       // Fetch profile and notes
-      fetchProfile(derivedPublicKey).then(userProfile => {
-        if (userProfile) {
-          setProfile(userProfile);
-        }
-      });
+      const userProfile = await fetchProfile(derivedPublicKey);
+      if (userProfile) {
+        setProfile(userProfile);
+      }
 
-      fetchNotes(derivedPublicKey).then(userNotes => {
-        setNotes(userNotes);
-      });
+      // Fetch following list
+      const followList = await fetchFollowingList(derivedPublicKey);
+      setFollowing(followList);
+
+      // Fetch notes
+      await fetchNotes(derivedPublicKey);
+      
+      return true;
     } catch (error) {
       console.error('Error logging in with private key:', error);
       toast({
@@ -226,7 +249,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         description: 'The provided private key is not valid',
         variant: 'destructive',
       });
-      throw error;
+      return false;
     }
   };
 
@@ -235,6 +258,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPublicKey(null);
     setProfile(null);
     setNotes([]);
+    setFollowing([]);
     setIsAuthenticated(false);
     
     // Clear local storage if the keys were stored there
@@ -280,8 +304,9 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       // Fetch metadata event (kind: 0)
+      const relayUrls = getRelayUrls(relays, true);
       const events = await pool.list(
-        relays.filter(r => r.read).map(r => r.url),
+        relayUrls,
         [
           {
             kinds: [0],
@@ -298,7 +323,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return {
         pubkey: pubkey,
-        npub: null,
+        npub: hexToNpub(pubkey),
       };
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -306,32 +331,98 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const fetchNotes = async (pubkey?: string): Promise<NostrNote[]> => {
+  const fetchFollowingList = async (pubkey: string): Promise<string[]> => {
     if (!pool) return [];
 
     try {
-      // Define filter based on whether we want a specific user's notes or global feed
-      const filter = pubkey ? 
-        {
+      // Fetch contacts event (kind: 3) as per NIP-02
+      const relayUrls = getRelayUrls(relays, true);
+      const events = await pool.list(
+        relayUrls,
+        [
+          {
+            kinds: [3],
+            authors: [pubkey],
+          }
+        ]
+      );
+
+      if (events.length > 0) {
+        // Get latest contacts event
+        const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
+        
+        // Extract followed pubkeys from the tags
+        const followedPubkeys = latestEvent.tags
+          .filter(tag => tag[0] === 'p')
+          .map(tag => tag[1]);
+        
+        return followedPubkeys;
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Error fetching following list:', error);
+      return [];
+    }
+  };
+
+  const getFollowingList = async (): Promise<string[]> => {
+    if (!publicKey) return [];
+    
+    // If we already have the following list, return it
+    if (following.length > 0) {
+      return following;
+    }
+    
+    // Otherwise, fetch it
+    const followingList = await fetchFollowingList(publicKey);
+    setFollowing(followingList);
+    return followingList;
+  };
+
+  const fetchNotes = async (pubkey?: string, pubkeys?: string[]): Promise<NostrNote[]> => {
+    if (!pool) return [];
+
+    try {
+      let filter;
+      
+      // Define filter based on parameters
+      if (pubkey) {
+        // Fetch notes by specific user
+        filter = {
           kinds: [1], // Text notes only
           authors: [pubkey],
           limit: 20,
-        } : 
-        {
+        };
+      } else if (pubkeys && pubkeys.length > 0) {
+        // Fetch notes by list of users (following)
+        filter = {
+          kinds: [1], // Text notes only
+          authors: pubkeys,
+          limit: 50,
+        };
+      } else {
+        // Fetch global feed
+        filter = {
           kinds: [1], // Text notes only
           limit: 50,
         };
+      }
 
       // Fetch note events
+      const relayUrls = getRelayUrls(relays, true);
       const events = await pool.list(
-        relays.filter(r => r.read).map(r => r.url),
+        relayUrls,
         [filter]
       );
 
       // Sort by timestamp (newest first)
-      return events
+      const parsedNotes = events
         .sort((a, b) => b.created_at - a.created_at)
         .map(event => parseNote(event));
+
+      setNotes(parsedNotes);
+      return parsedNotes;
     } catch (error) {
       console.error('Error fetching notes:', error);
       return [];
@@ -391,10 +482,9 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const signedEvent = await window.nostr.signEvent(event);
           
           // Publish to relays
+          const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
           await Promise.all(
-            relays
-              .filter(relay => relay.write)
-              .map(relay => pool.publish([relay.url], signedEvent))
+            writeRelayUrls.map(url => pool.publish([url], signedEvent))
           );
         } catch (err) {
           console.error("Extension signing error:", err);
@@ -407,13 +497,12 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } else if (privateKey) {
         // Sign with local private key
-        event.sig = signEvent(event, privateKey);
+        event.sig = nostrSignEvent(event, privateKey);
         
         // Publish to relays
+        const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
         await Promise.all(
-          relays
-            .filter(relay => relay.write)
-            .map(relay => pool.publish([relay.url], event))
+          writeRelayUrls.map(url => pool.publish([url], event))
         );
       } else {
         toast({
@@ -449,53 +538,458 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const publishNote = async (content: string): Promise<boolean> => {
-    if (!pool || !privateKey || !publicKey) return false;
+    if (!pool) {
+      toast({
+        title: "Connection error",
+        description: "Cannot connect to NOSTR network",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to publish a note",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    if (!publicKey) {
+      toast({
+        title: "Missing public key",
+        description: "Your public key is not available",
+        variant: "destructive"
+      });
+      return false;
+    }
 
-    // Implement this with nostr-tools
-    // You'll need to create a signed event and publish it
-    // This is a placeholder for now
-    toast({
-      title: 'Note publishing not implemented yet',
-      description: 'Coming soon!',
-    });
+    try {
+      // Create note event (kind: 1) according to NIP-01
+      let event: Event = {
+        kind: 1, // Text note event
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [],
+        content: content,
+        id: '', // Will be set below
+        sig: '', // Will be set below
+      };
 
-    return false;
+      // Calculate id from event data
+      event.id = getEventHash(event);
+      
+      // If using extension, sign with it
+      if (window.nostr) {
+        try {
+          const signedEvent = await window.nostr.signEvent(event);
+          
+          // Publish to relays
+          const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
+          await Promise.all(
+            writeRelayUrls.map(url => pool.publish([url], signedEvent))
+          );
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          toast({
+            title: "Extension signing failed",
+            description: "Please check your NOSTR browser extension",
+            variant: "destructive"
+          });
+          return false;
+        }
+      } else {
+        // Sign with local private key
+        event.sig = nostrSignEvent(event, privateKey);
+        
+        // Publish to relays
+        const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
+        await Promise.all(
+          writeRelayUrls.map(url => pool.publish([url], event))
+        );
+      }
+
+      toast({
+        title: "Note published",
+        description: "Your note has been successfully published",
+      });
+
+      // Refresh notes to include the new one
+      await fetchNotes(publicKey);
+      
+      return true;
+    } catch (error) {
+      console.error('Error publishing note:', error);
+      toast({
+        title: "Error publishing note",
+        description: "There was an error publishing your note",
+        variant: "destructive"
+      });
+      return false;
+    }
   };
 
-  const followUser = async (pubkey: string): Promise<boolean> => {
-    // Implement this with nostr-tools
-    toast({
-      title: 'Follow feature not implemented yet',
-      description: 'Coming soon!',
-    });
-    return false;
+  // Follow user implementation according to NIP-02
+  const followUser = async (pubkeyToFollow: string): Promise<boolean> => {
+    if (!pool || !publicKey || !privateKey) {
+      toast({
+        title: "Error",
+        description: "Not authenticated or connection issue",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    try {
+      // First get the current contact list
+      const currentFollowing = await getFollowingList();
+      
+      // Check if already following
+      if (currentFollowing.includes(pubkeyToFollow)) {
+        toast({
+          title: "Already following",
+          description: "You are already following this user",
+        });
+        return true;
+      }
+      
+      // Add the new pubkey to the list
+      const newFollowing = [...currentFollowing, pubkeyToFollow];
+      
+      // Create tags for each followed pubkey
+      const tags = newFollowing.map(pk => ['p', pk]);
+      
+      // Create contact list event (kind: 3) according to NIP-02
+      let event: Event = {
+        kind: 3, // Contact list
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: tags,
+        content: '', // Content can be empty or contain additional metadata
+        id: '', // Will be set below
+        sig: '', // Will be set below
+      };
+
+      // Calculate id from event data
+      event.id = getEventHash(event);
+      
+      // If using extension, sign with it
+      if (window.nostr) {
+        try {
+          const signedEvent = await window.nostr.signEvent(event);
+          
+          // Publish to relays
+          const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
+          await Promise.all(
+            writeRelayUrls.map(url => pool.publish([url], signedEvent))
+          );
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          toast({
+            title: "Extension signing failed",
+            description: "Please check your NOSTR browser extension",
+            variant: "destructive"
+          });
+          return false;
+        }
+      } else {
+        // Sign with local private key
+        event.sig = nostrSignEvent(event, privateKey);
+        
+        // Publish to relays
+        const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
+        await Promise.all(
+          writeRelayUrls.map(url => pool.publish([url], event))
+        );
+      }
+
+      // Update local state
+      setFollowing(newFollowing);
+      
+      toast({
+        title: "User followed",
+        description: "You are now following this user",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error following user:', error);
+      toast({
+        title: "Error following user",
+        description: "There was an error following this user",
+        variant: "destructive"
+      });
+      return false;
+    }
   };
 
-  const unfollowUser = async (pubkey: string): Promise<boolean> => {
-    // Implement this with nostr-tools
-    toast({
-      title: 'Unfollow feature not implemented yet',
-      description: 'Coming soon!',
-    });
-    return false;
+  // Unfollow user implementation according to NIP-02
+  const unfollowUser = async (pubkeyToUnfollow: string): Promise<boolean> => {
+    if (!pool || !publicKey || !privateKey) {
+      toast({
+        title: "Error",
+        description: "Not authenticated or connection issue",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    try {
+      // First get the current contact list
+      const currentFollowing = await getFollowingList();
+      
+      // Check if not following
+      if (!currentFollowing.includes(pubkeyToUnfollow)) {
+        toast({
+          title: "Not following",
+          description: "You are not following this user",
+        });
+        return true;
+      }
+      
+      // Remove the pubkey from the list
+      const newFollowing = currentFollowing.filter(pk => pk !== pubkeyToUnfollow);
+      
+      // Create tags for each followed pubkey
+      const tags = newFollowing.map(pk => ['p', pk]);
+      
+      // Create contact list event (kind: 3) according to NIP-02
+      let event: Event = {
+        kind: 3, // Contact list
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: tags,
+        content: '', // Content can be empty or contain additional metadata
+        id: '', // Will be set below
+        sig: '', // Will be set below
+      };
+
+      // Calculate id from event data
+      event.id = getEventHash(event);
+      
+      // If using extension, sign with it
+      if (window.nostr) {
+        try {
+          const signedEvent = await window.nostr.signEvent(event);
+          
+          // Publish to relays
+          const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
+          await Promise.all(
+            writeRelayUrls.map(url => pool.publish([url], signedEvent))
+          );
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          toast({
+            title: "Extension signing failed",
+            description: "Please check your NOSTR browser extension",
+            variant: "destructive"
+          });
+          return false;
+        }
+      } else {
+        // Sign with local private key
+        event.sig = nostrSignEvent(event, privateKey);
+        
+        // Publish to relays
+        const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
+        await Promise.all(
+          writeRelayUrls.map(url => pool.publish([url], event))
+        );
+      }
+
+      // Update local state
+      setFollowing(newFollowing);
+      
+      toast({
+        title: "User unfollowed",
+        description: "You have unfollowed this user",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+      toast({
+        title: "Error unfollowing user",
+        description: "There was an error unfollowing this user",
+        variant: "destructive"
+      });
+      return false;
+    }
   };
 
+  // Like note implementation according to NIP-25
   const likeNote = async (noteId: string): Promise<boolean> => {
-    // Implement this with nostr-tools
-    toast({
-      title: 'Like feature not implemented yet',
-      description: 'Coming soon!',
-    });
-    return false;
+    if (!pool || !publicKey || !privateKey) {
+      toast({
+        title: "Error",
+        description: "Not authenticated or connection issue",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    try {
+      // Find the note to like (to get author pubkey)
+      const noteToLike = notes.find(note => note.id === noteId);
+      if (!noteToLike) {
+        toast({
+          title: "Note not found",
+          description: "The note you're trying to like was not found",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Create reaction event (kind: 7) according to NIP-25
+      let event: Event = {
+        kind: NOSTR_KINDS.REACTION, // Reaction event (7)
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['e', noteId], // Reference to the note event
+          ['p', noteToLike.pubkey] // Reference to the note author
+        ],
+        content: '+', // "+" for like, according to NIP-25
+        id: '', // Will be set below
+        sig: '', // Will be set below
+      };
+
+      // Calculate id from event data
+      event.id = getEventHash(event);
+      
+      // If using extension, sign with it
+      if (window.nostr) {
+        try {
+          const signedEvent = await window.nostr.signEvent(event);
+          
+          // Publish to relays
+          const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
+          await Promise.all(
+            writeRelayUrls.map(url => pool.publish([url], signedEvent))
+          );
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          toast({
+            title: "Extension signing failed",
+            description: "Please check your NOSTR browser extension",
+            variant: "destructive"
+          });
+          return false;
+        }
+      } else {
+        // Sign with local private key
+        event.sig = nostrSignEvent(event, privateKey);
+        
+        // Publish to relays
+        const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
+        await Promise.all(
+          writeRelayUrls.map(url => pool.publish([url], event))
+        );
+      }
+      
+      toast({
+        title: "Note liked",
+        description: "You've liked this note",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error liking note:', error);
+      toast({
+        title: "Error liking note",
+        description: "There was an error liking this note",
+        variant: "destructive"
+      });
+      return false;
+    }
   };
 
-  const repostNote = async (noteId: string): Promise<boolean> => {
-    // Implement this with nostr-tools
-    toast({
-      title: 'Repost feature not implemented yet',
-      description: 'Coming soon!',
-    });
-    return false;
+  // Repost note implementation according to NIP-18
+  const repostNote = async (noteId: string, content?: string): Promise<boolean> => {
+    if (!pool || !publicKey || !privateKey) {
+      toast({
+        title: "Error",
+        description: "Not authenticated or connection issue",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    try {
+      // Find the note to repost
+      const noteToRepost = notes.find(note => note.id === noteId);
+      if (!noteToRepost) {
+        toast({
+          title: "Note not found",
+          description: "The note you're trying to repost was not found",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Create repost event (kind: 6) according to NIP-18
+      let event: Event = {
+        kind: 6, // Repost event
+        pubkey: publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['e', noteId], // Reference to the note event
+          ['p', noteToRepost.pubkey] // Reference to the note author
+        ],
+        content: content || '', // Optional comment for the repost
+        id: '', // Will be set below
+        sig: '', // Will be set below
+      };
+
+      // Calculate id from event data
+      event.id = getEventHash(event);
+      
+      // If using extension, sign with it
+      if (window.nostr) {
+        try {
+          const signedEvent = await window.nostr.signEvent(event);
+          
+          // Publish to relays
+          const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
+          await Promise.all(
+            writeRelayUrls.map(url => pool.publish([url], signedEvent))
+          );
+        } catch (err) {
+          console.error("Extension signing error:", err);
+          toast({
+            title: "Extension signing failed",
+            description: "Please check your NOSTR browser extension",
+            variant: "destructive"
+          });
+          return false;
+        }
+      } else {
+        // Sign with local private key
+        event.sig = nostrSignEvent(event, privateKey);
+        
+        // Publish to relays
+        const writeRelayUrls = getRelayUrls(relays.filter(r => r.write));
+        await Promise.all(
+          writeRelayUrls.map(url => pool.publish([url], event))
+        );
+      }
+      
+      toast({
+        title: "Note reposted",
+        description: "You've reposted this note",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error reposting note:', error);
+      toast({
+        title: "Error reposting note",
+        description: "There was an error reposting this note",
+        variant: "destructive"
+      });
+      return false;
+    }
   };
 
   // Relay management functions
@@ -601,6 +1095,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     publishNote,
     followUser,
     unfollowUser,
+    getFollowingList,
     likeNote,
     repostNote,
     addRelay,
@@ -616,8 +1111,23 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
-function getPublicKey(privateKey: string): string {
-  // Implement this function to derive the public key from the private key
-  // This is a placeholder for now
-  return 'derivedPublicKey';
+// Helper function to get public key from private key
+function getPublicKeyFromPrivate(privateKey: string): string {
+  // This is a placeholder. In a real implementation, you would use the
+  // crypto libraries from nostr-tools to derive the public key
+  // from the private key.
+  if (typeof privateKey !== 'string' || privateKey.length < 1) {
+    throw new Error("Invalid private key");
+  }
+  
+  try {
+    // Use the imported function from nostr-tools
+    return getPublicKey(privateKey);
+  } catch (error) {
+    console.error("Error deriving public key:", error);
+    throw new Error("Failed to derive public key from private key");
+  }
 }
+
+// Import the actual function from nostr-tools
+import { getPublicKey } from 'nostr-tools';

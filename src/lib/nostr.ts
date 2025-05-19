@@ -1,3 +1,4 @@
+
 import { generatePrivateKey, getPublicKey, nip19 } from 'nostr-tools';
 import type { Event as NostrEvent } from 'nostr-tools';
 
@@ -68,33 +69,58 @@ export const DEFAULT_RELAYS: NostrRelayConfig[] = [
   { url: 'wss://relay.nostr.bg', read: true, write: true },
 ];
 
-// NOSTR event kinds
+// NOSTR event kinds as defined in various NIPs
 export const NOSTR_KINDS = {
+  // NIP-01: Basic protocol
   METADATA: 0,
   TEXT_NOTE: 1,
   RECOMMEND_SERVER: 2,
   CONTACTS: 3,
+  
+  // NIP-04: Encrypted Direct Messages
   ENCRYPTED_DIRECT_MESSAGE: 4,
+  
+  // NIP-09: Event Deletion
   DELETE: 5,
+  
+  // NIP-25: Reactions
   REACTION: 7,
+  
+  // NIP-18: Reposts
+  REPOST: 6,
+  
+  // NIP-28: Public Chat
   CHANNEL_CREATION: 40,
   CHANNEL_METADATA: 41,
   CHANNEL_MESSAGE: 42,
   CHANNEL_HIDE_MESSAGE: 43,
   CHANNEL_MUTE_USER: 44,
+  
+  // NIP-56: Reporting
   REPORTING: 1984,
+  
+  // NIP-57: Lightning Zaps
   ZAP_REQUEST: 9734,
   ZAP_RECEIPT: 9735,
+  
+  // NIP-16: Event Treatment
   REPLACEABLE_FIRST: 10000,
   REPLACEABLE_LAST: 19999,
   EPHEMERAL_FIRST: 20000,
   EPHEMERAL_LAST: 29999,
   PARAMETERIZED_REPLACEABLE_FIRST: 30000,
   PARAMETERIZED_REPLACEABLE_LAST: 39999,
+  
+  // Custom application ranges
   CUSTOM_APPLICATION_FIRST: 40000,
   CUSTOM_APPLICATION_LAST: 49999,
-  // Custom kinds for Alephium integration
-  ALEPHIUM_TRANSACTION: 30000, // Using parameterized replaceable kind as per NIP-16
+  
+  // NIP-51: Lists
+  CONTACTS_LIST: 3,
+  BOOKMARKS_LIST: 10003,
+  
+  // Alephium integration (using parameterized replaceable kind)
+  ALEPHIUM_TRANSACTION: 30000,
 };
 
 // Local storage keys
