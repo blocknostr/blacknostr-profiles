@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SimplePool, Event, getEventHash, signEvent } from 'nostr-tools';
 import { toast } from '@/components/ui/use-toast';
@@ -14,18 +15,8 @@ import {
   parseNote,
   profileToMetadata,
   NOSTR_KEYS,
-  hexToNpub,
-  hexToUint8Array,
-  nostrService
+  hexToNpub
 } from '@/lib/nostr';
-
-// Define the Filter type to match what SimplePool expects
-type NostrFilter = {
-  kinds?: number[];
-  authors?: string[];
-  limit?: number;
-  [key: `#${string}`]: string[];
-};
 
 interface NostrContextType {
   isLoading: boolean;
@@ -202,10 +193,8 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const loginWithPrivateKey = (inputPrivateKey: string) => {
     try {
-      // Convert to Uint8Array for compatibility with nostr-tools
-      const privateKeyBytes = hexToUint8Array(inputPrivateKey);
-      // Get public key from private key - we need to pass Uint8Array, not string
-      const derivedPublicKey = getPublicKey(privateKeyBytes);
+      // Get public key from private key
+      const derivedPublicKey = getPublicKey(inputPrivateKey);
       
       // Save keys
       saveKeys(inputPrivateKey);
@@ -291,15 +280,14 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       // Fetch metadata event (kind: 0)
-      // Update to use proper Filter type
-      const filter: NostrFilter = {
-        kinds: [0],
-        authors: [pubkey],
-      };
-      
-      const events = await pool.querySync(
+      const events = await pool.list(
         relays.filter(r => r.read).map(r => r.url),
-        [filter]
+        [
+          {
+            kinds: [0],
+            authors: [pubkey],
+          }
+        ]
       );
 
       if (events.length > 0) {
@@ -310,7 +298,7 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return {
         pubkey: pubkey,
-        npub: hexToNpub(pubkey),
+        npub: null,
       };
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -323,24 +311,19 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       // Define filter based on whether we want a specific user's notes or global feed
-      // Fix the Filter type
-      let filter: NostrFilter;
-      
-      if (pubkey) {
-        filter = {
+      const filter = pubkey ? 
+        {
           kinds: [1], // Text notes only
           authors: [pubkey],
           limit: 20,
-        };
-      } else {
-        filter = {
+        } : 
+        {
           kinds: [1], // Text notes only
           limit: 50,
         };
-      }
 
-      // Fetch note events using querySync with proper filter
-      const events = await pool.querySync(
+      // Fetch note events
+      const events = await pool.list(
         relays.filter(r => r.read).map(r => r.url),
         [filter]
       );
@@ -389,14 +372,19 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const content = JSON.stringify(metadata);
 
       // Create metadata event (kind: 0) according to NIP-01
-      let event: Partial<Event> = {
+      let event: Event = {
         kind: 0, // Metadata event
         pubkey: publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [],
         content: content,
+        id: '', // Will be set below
+        sig: '', // Will be set below
       };
 
+      // Calculate id from event data
+      event.id = getEventHash(event);
+      
       // If using extension, sign with it
       if (window.nostr) {
         try {
@@ -418,22 +406,14 @@ export const NostrProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return false;
         }
       } else if (privateKey) {
-        // Sign with local private key using signEvent from nostr-tools
-        const privateKeyBytes = hexToUint8Array(privateKey);
-        
-        // Add id to the event
-        const id = getEventHash(event as Event);
-        const eventWithId = { ...event, id };
-        
-        // Sign the event
-        const sig = signEvent(eventWithId as Event, privateKeyBytes);
-        const signedEvent = { ...eventWithId, sig } as Event;
+        // Sign with local private key
+        event.sig = signEvent(event, privateKey);
         
         // Publish to relays
         await Promise.all(
           relays
             .filter(relay => relay.write)
-            .map(relay => pool.publish([relay.url], signedEvent))
+            .map(relay => pool.publish([relay.url], event))
         );
       } else {
         toast({

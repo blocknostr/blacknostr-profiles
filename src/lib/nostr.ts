@@ -1,7 +1,5 @@
-
-import { getPublicKey, nip19, signEvent } from 'nostr-tools';
-import { generateSecretKey, getEventHash, type Event as NostrEvent } from 'nostr-tools';
-import type { Event as NostrEventType } from 'nostr-tools';
+import { generatePrivateKey, getPublicKey, nip19 } from 'nostr-tools';
+import type { Event as NostrEvent } from 'nostr-tools';
 
 // Types based on NOSTR Implementation Possibilities (NIPs)
 export type NostrProfile = {
@@ -122,29 +120,17 @@ declare global {
 
 // Generate new keys
 export const generateKeys = () => {
-  const sk = generateSecretKey(); 
+  const sk = generatePrivateKey();
   const pk = getPublicKey(sk);
-  return { privateKey: Buffer.from(sk).toString('hex'), publicKey: pk };
+  return { privateKey: sk, publicKey: pk };
 };
 
 // Save keys to local storage
 export const saveKeys = (privateKey: string) => {
   localStorage.setItem(NOSTR_KEYS.PRIVATE_KEY, privateKey);
-  // Convert hex to Uint8Array for getPublicKey
-  const privateKeyBytes = hexToUint8Array(privateKey);
-  const publicKey = getPublicKey(privateKeyBytes);
+  const publicKey = getPublicKey(privateKey);
   localStorage.setItem(NOSTR_KEYS.PUBLIC_KEY, publicKey);
   return { privateKey, publicKey };
-};
-
-// Helper to convert hex string to Uint8Array
-export const hexToUint8Array = (hex: string): Uint8Array => {
-  if (hex.startsWith('0x')) hex = hex.slice(2);
-  const a = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    a[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-  }
-  return a;
 };
 
 // Get keys from local storage
@@ -182,7 +168,7 @@ export const formatTimestamp = (timestamp: number): string => {
 };
 
 // Parse profile content from metadata (NIP-01)
-export const parseProfile = (event: NostrEventType): NostrProfile => {
+export const parseProfile = (event: NostrEvent): NostrProfile => {
   try {
     const content = JSON.parse(event.content);
     return {
@@ -240,7 +226,7 @@ export const createAlephiumTxEvent = (
   tokenId: string,
   tokenSymbol: string,
   privateKey: string
-): NostrEventType => {
+): NostrEvent => {
   // Following NIP-16 for parameterized replaceable events
   const event: any = {
     kind: NOSTR_KINDS.ALEPHIUM_TRANSACTION,
@@ -255,15 +241,8 @@ export const createAlephiumTxEvent = (
       ['timestamp', tx.timestamp.toString()]
     ],
     content: JSON.stringify(tx),
-    pubkey: getPublicKey(hexToUint8Array(privateKey)), // Convert hex to Uint8Array
+    pubkey: getPublicKey(privateKey),
   };
-  
-  // Compute ID and Sign the event
-  event.id = getEventHash(event);
-  
-  // Since finishEvent is not available, use signEvent instead
-  const privateKeyBytes = hexToUint8Array(privateKey);
-  event.sig = signEvent(event, privateKeyBytes);
   
   return event;
 };
@@ -323,30 +302,6 @@ class NostrService {
     this._publicKey = null;
     localStorage.removeItem(NOSTR_KEYS.PRIVATE_KEY);
     localStorage.removeItem(NOSTR_KEYS.PUBLIC_KEY);
-  }
-
-  // Sign a nostr event
-  signEvent(event: Partial<NostrEventType>): NostrEventType {
-    if (!this._privateKey) {
-      throw new Error('No private key available');
-    }
-    
-    const privateKeyBytes = hexToUint8Array(this._privateKey);
-    
-    // Create a properly formatted event
-    const unsignedEvent = {
-      ...event,
-      id: getEventHash(event as NostrEventType),
-    };
-    
-    // Sign the event
-    const sig = signEvent(unsignedEvent as NostrEventType, privateKeyBytes);
-    
-    // Return the complete signed event
-    return {
-      ...unsignedEvent,
-      sig,
-    } as NostrEventType;
   }
 }
 
