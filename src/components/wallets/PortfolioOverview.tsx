@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Wallet, FilePlus, Trash, Circle, TrendingUp, DatabaseBackup, Database, FileText, Layers, CircleDollarSign, BarChart3, Coins } from "lucide-react";
+import { Wallet, FilePlus, Trash, Circle, TrendingUp, CircleDollarSign, BarChart3, Coins } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useNostr } from "@/contexts/NostrContext";
 import { toast } from "@/components/ui/use-toast";
@@ -159,7 +160,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             
             // Add wallet balance to total
             const walletValue = (wallet.balance || 0) * (currentPrice || 0.82) + 
-              ((wallet.tokens || []).reduce((sum, token) => sum + token.value, 0));
+              ((wallet.tokens || []).reduce((sum, token) => sum + (token.value || 0), 0));
             total += walletValue;
             continue;
           }
@@ -168,7 +169,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             // Get real balance data for Alephium
             const balanceData = await alephiumAPI.getAddressBalance(wallet.address);
             // Convert balance from smallest unit (nanoALPH) to ALPH
-            const balanceInALPH = balanceData.balance / 10**18;
+            const balanceInALPH = Number(balanceData.balance) / 10**18;
             
             // Try to get token data
             let tokens: TokenData[] = [];
@@ -248,7 +249,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             
             // Add wallet balance to total (convert ALPH to USD)
             const alphValue = balanceInALPH * (currentPrice || 0.82);
-            const tokensValue = tokens.reduce((sum, token) => sum + token.value, 0);
+            const tokensValue = tokens.reduce((sum, token) => sum + (token.value || 0), 0);
             
             total += alphValue + tokensValue;
           } catch (error) {
@@ -271,7 +272,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
             
             // Add wallet value to total (convert ALPH to USD)
             const alphValue = balance * (currentPrice || 0.82);
-            const tokensValue = tokens.reduce((sum, token) => sum + token.value, 0);
+            const tokensValue = tokens.reduce((sum, token) => sum + (token.value || 0), 0);
             
             total += alphValue + tokensValue;
           }
@@ -322,7 +323,7 @@ const PortfolioOverview = ({ ecosystem }: PortfolioOverviewProps) => {
           const balance = wallet.balance || calculateBalanceFromAddress(wallet.address, ecosystem);
           const tokens = wallet.tokens || generateTokensFromAddress(wallet.address, ecosystem);
           
-          const walletValue = balance + tokens.reduce((sum, token) => sum + token.value, 0);
+          const walletValue = balance + tokens.reduce((sum, token) => sum + (token.value || 0), 0);
           total += walletValue;
           
           return {
