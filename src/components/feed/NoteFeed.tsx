@@ -20,7 +20,6 @@ export default function NoteFeed({ pubkey, sinceTime, hashtag }: NoteFeedProps) 
     const loadNotes = async () => {
       setIsLoading(true);
       // NIP-01: Basic protocol filters
-      // The error was here - fetchNotes was called with 3 arguments but only expects 0-1
       await fetchNotes(pubkey);
       setIsLoading(false);
     };
@@ -76,7 +75,7 @@ export default function NoteFeed({ pubkey, sinceTime, hashtag }: NoteFeedProps) 
 
   if (notes.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 border border-dashed rounded-lg">
         <h3 className="text-lg font-medium">No notes found</h3>
         <p className="text-muted-foreground">Be the first to post something!</p>
       </div>

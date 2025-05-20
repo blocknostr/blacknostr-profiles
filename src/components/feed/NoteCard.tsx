@@ -4,7 +4,7 @@ import { useNostr } from "@/contexts/NostrContext";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Repeat, Share, Link } from "lucide-react";
+import { Heart, MessageSquare, Repeat, Link } from "lucide-react";
 import { NostrNote, NostrProfile, formatTimestamp } from "@/lib/nostr";
 import { nip19 } from "nostr-tools";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -88,17 +88,17 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
   };
 
   return (
-    <Card className="mb-4 hover:bg-accent/5 transition-colors">
+    <Card className="mb-4 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
       <CardHeader className="p-4 pb-0">
         <div className="flex items-start space-x-3">
-          <Avatar>
+          <Avatar className="h-10 w-10">
             <AvatarImage src={avatarUrl} alt={displayName} />
             <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
             <div className="flex justify-between items-start">
               <div>
-                <p className="font-medium text-sm">{displayName}</p>
+                <p className="font-medium">{displayName}</p>
                 <p className="text-xs text-muted-foreground">
                   {username}
                   {/* NIP-05 verification display */}
@@ -133,19 +133,19 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
         
         {/* Content with processed mentions and links */}
         <div 
-          className="whitespace-pre-wrap" 
+          className="whitespace-pre-wrap text-base leading-relaxed" 
           dangerouslySetInnerHTML={{ __html: processContent(note.content) }} 
         />
       </CardContent>
-      <CardFooter className="p-2 pt-0 flex justify-between">
-        <Button variant="ghost" size="sm">
+      <CardFooter className="p-3 pt-0 flex justify-between border-t border-gray-100 dark:border-gray-800 mt-2">
+        <Button variant="ghost" size="sm" className="text-gray-500 hover:text-primary hover:bg-primary/5">
           <MessageSquare className="h-4 w-4 mr-1" />
           <span className="text-xs">Reply</span>
         </Button>
         <Button 
           variant="ghost" 
           size="sm" 
-          className={isReposted ? "text-green-500" : ""}
+          className={isReposted ? "text-green-500" : "text-gray-500 hover:text-green-500 hover:bg-green-500/5"}
           onClick={handleRepost}
         >
           <Repeat className="h-4 w-4 mr-1" />
@@ -154,13 +154,18 @@ export default function NoteCard({ note, authorProfile }: NoteCardProps) {
         <Button 
           variant="ghost" 
           size="sm" 
-          className={isLiked ? "text-red-500" : ""}
+          className={isLiked ? "text-red-500" : "text-gray-500 hover:text-red-500 hover:bg-red-500/5"}
           onClick={handleLike}
         >
           <Heart className="h-4 w-4 mr-1" />
           <span className="text-xs">Like</span>
         </Button>
-        <Button variant="ghost" size="sm" onClick={copyNoteLink}>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="text-gray-500 hover:text-primary hover:bg-primary/5" 
+          onClick={copyNoteLink}
+        >
           <Link className="h-4 w-4 mr-1" />
           <span className="text-xs">Copy</span>
         </Button>

@@ -4,57 +4,25 @@ import { useNostr } from "@/contexts/NostrContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Home, 
-  Wallet, 
-  Bell, 
   MessageSquare, 
-  FileText, 
-  BookOpen, 
-  Gamepad, 
-  Crown, 
   User, 
   Settings,
-  PenSquare,
-  Users
+  Search
 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useState } from "react";
-import { toast } from "@/components/ui/use-toast";
+import { Link, useLocation } from "react-router-dom";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { toast } from "@/components/ui/use-toast";
 
 export default function Sidebar() {
-  const { isAuthenticated, profile, logout, publishNote } = useNostr();
-  const [noteContent, setNoteContent] = useState("");
+  const { isAuthenticated, profile, logout } = useNostr();
+  const location = useLocation();
   
   const navItems = [
     { icon: <Home className="h-5 w-5" />, label: "Home", href: "/" },
-    { icon: <Wallet className="h-5 w-5" />, label: "Wallets", href: "/wallets" },
-    { icon: <Bell className="h-5 w-5" />, label: "Notifications", href: "/notifications" },
     { icon: <MessageSquare className="h-5 w-5" />, label: "Messages", href: "/messages" },
-    { icon: <Users className="h-5 w-5" />, label: "Communities", href: "/daos" },
-    { icon: <BookOpen className="h-5 w-5" />, label: "Articles", href: "/articles" },
-    { icon: <PenSquare className="h-5 w-5" />, label: "Notes", href: "/notes" },
-    { icon: <Gamepad className="h-5 w-5" />, label: "Games", href: "/games" },
-    { icon: <Crown className="h-5 w-5" />, label: "Premium", href: "/premium" },
     { icon: <User className="h-5 w-5" />, label: "Profile", href: "/profile" },
     { icon: <Settings className="h-5 w-5" />, label: "Settings", href: "/settings" },
   ];
-
-  const handleCreateNote = () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to create a note",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Show toast for demonstration (in a real app, this would open a modal or redirect)
-    toast({
-      title: "Create a new note",
-      description: "This would open a note creation interface"
-    });
-  };
 
   const handleConnectWallet = () => {
     if (isAuthenticated) {
@@ -72,20 +40,32 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="h-screen w-80 p-4 border-r border-border dark:bg-nostr-dark dark:border-white/10 fixed overflow-y-auto">
+    <div className="h-screen w-64 p-4 border-r border-border dark:bg-nostr-dark dark:border-white/10 fixed overflow-y-auto flex flex-col">
       {/* Logo and Theme Toggle */}
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
         <ThemeToggle />
       </div>
 
-      {/* Navigation Links - without the card container */}
-      <div className="space-y-2 mb-6">
+      {/* Search */}
+      <div className="relative mb-6">
+        <Button variant="outline" className="w-full justify-start dark:bg-transparent">
+          <Search className="h-4 w-4 mr-2" />
+          <span>Search</span>
+        </Button>
+      </div>
+
+      {/* Navigation Links */}
+      <div className="space-y-1 mb-6">
         {navItems.map((item) => (
           <Link
             key={item.label}
             to={item.href}
-            className="flex items-center px-3 py-2 rounded-md text-base font-medium hover:bg-muted transition-colors dark:hover:bg-white/5"
+            className={`flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors dark:hover:bg-white/5 ${
+              location.pathname === item.href 
+                ? "bg-muted dark:bg-white/10 text-nostr-blue dark:text-white" 
+                : "hover:bg-muted"
+            }`}
           >
             {item.icon}
             <span className="ml-3">{item.label}</span>
@@ -93,58 +73,38 @@ export default function Sidebar() {
         ))}
       </div>
       
-      {/* Create Note Button - Styled prominently */}
-      <div className="mt-4 mb-6">
-        <Button 
-          onClick={handleCreateNote}
-          className="w-full bg-nostr-blue hover:bg-nostr-blue/90 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2 text-base"
-        >
-          <PenSquare className="h-5 w-5" />
-          Create Note
-        </Button>
-      </div>
-
       {/* User Profile moved to the bottom */}
-      <div className="absolute bottom-4 left-0 right-0 px-4">
-        <div className="flex flex-col space-y-3">
-          {isAuthenticated && profile ? (
-            <>
-              <div className="flex items-center space-x-3">
-                <Avatar>
-                  <AvatarImage src={profile.picture} alt={profile.displayName || "User"} />
-                  <AvatarFallback>{profile.displayName?.charAt(0) || "U"}</AvatarFallback>
-                </Avatar>
-                <div className="overflow-hidden">
-                  <p className="text-base font-medium truncate">{profile.displayName || "Anonymous"}</p>
-                  <p className="text-sm text-muted-foreground truncate dark:text-nostr-muted">{profile.npub?.slice(0, 10)}...</p>
-                </div>
+      <div className="mt-auto">
+        {isAuthenticated && profile ? (
+          <div className="flex flex-col space-y-3">
+            <div className="flex items-center space-x-3">
+              <Avatar>
+                <AvatarImage src={profile.picture} alt={profile.displayName || "User"} />
+                <AvatarFallback>{profile.displayName?.charAt(0) || "U"}</AvatarFallback>
+              </Avatar>
+              <div className="overflow-hidden">
+                <p className="text-base font-medium truncate">{profile.displayName || "Anonymous"}</p>
+                <p className="text-sm text-muted-foreground truncate dark:text-nostr-muted">{profile.npub?.slice(0, 10)}...</p>
               </div>
-              
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base" 
-                onClick={handleConnectWallet}
-              >
-                <Wallet className="h-5 w-5 mr-2" />
-                {isAuthenticated ? 
-                  <div className="flex flex-col items-start">
-                    <span className="text-xs">Connected:</span>
-                    <span className="truncate text-sm max-w-[180px]">{profile.npub?.slice(0, 12)}...</span>
-                  </div> : "Connect Wallet"}
-              </Button>
-            </>
-          ) : (
+            </div>
+            
             <Button 
               variant="outline" 
-              className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base" 
+              className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base"
               onClick={handleConnectWallet}
             >
-              <Wallet className="h-5 w-5 mr-2" />
-              Connect Wallet
+              {isAuthenticated ? "Disconnect Wallet" : "Connect Wallet"}
             </Button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <Button 
+            variant="outline" 
+            className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base" 
+            onClick={handleConnectWallet}
+          >
+            Connect Wallet
+          </Button>
+        )}
       </div>
     </div>
   );
