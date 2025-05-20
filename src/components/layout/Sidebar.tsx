@@ -12,10 +12,14 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { toast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useState } from "react";
+import { LoginForm } from "@/components/auth/LoginForm";
 
 export default function Sidebar() {
   const { isAuthenticated, profile, logout } = useNostr();
   const location = useLocation();
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   
   const navItems = [
     { icon: <Home className="h-5 w-5" />, label: "Home", href: "/" },
@@ -32,80 +36,92 @@ export default function Sidebar() {
         description: "You have successfully disconnected your wallet"
       });
     } else {
-      toast({
-        title: "Connect Wallet",
-        description: "This would open a wallet connection interface"
-      });
+      setIsLoginDialogOpen(true);
     }
   };
 
   return (
-    <div className="h-screen w-64 p-4 border-r border-border dark:bg-nostr-dark dark:border-white/10 fixed overflow-y-auto flex flex-col">
-      {/* Logo and Theme Toggle */}
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
-        <ThemeToggle />
-      </div>
+    <>
+      <div className="h-screen w-64 p-4 border-r border-border dark:bg-nostr-dark dark:border-white/10 fixed overflow-y-auto flex flex-col">
+        {/* Logo and Theme Toggle */}
+        <div className="mb-8 flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-nostr-blue dark:text-nostr-blue">BlockNostr</h1>
+          <ThemeToggle />
+        </div>
 
-      {/* Search */}
-      <div className="relative mb-6">
-        <Button variant="outline" className="w-full justify-start dark:bg-transparent">
-          <Search className="h-4 w-4 mr-2" />
-          <span>Search</span>
-        </Button>
-      </div>
+        {/* Search */}
+        <div className="relative mb-6">
+          <Button variant="outline" className="w-full justify-start dark:bg-transparent">
+            <Search className="h-4 w-4 mr-2" />
+            <span>Search</span>
+          </Button>
+        </div>
 
-      {/* Navigation Links */}
-      <div className="space-y-1 mb-6">
-        {navItems.map((item) => (
-          <Link
-            key={item.label}
-            to={item.href}
-            className={`flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors dark:hover:bg-white/5 ${
-              location.pathname === item.href 
-                ? "bg-muted dark:bg-white/10 text-nostr-blue dark:text-white" 
-                : "hover:bg-muted"
-            }`}
-          >
-            {item.icon}
-            <span className="ml-3">{item.label}</span>
-          </Link>
-        ))}
-      </div>
-      
-      {/* User Profile moved to the bottom */}
-      <div className="mt-auto">
-        {isAuthenticated && profile ? (
-          <div className="flex flex-col space-y-3">
-            <div className="flex items-center space-x-3">
-              <Avatar>
-                <AvatarImage src={profile.picture} alt={profile.displayName || "User"} />
-                <AvatarFallback>{profile.displayName?.charAt(0) || "U"}</AvatarFallback>
-              </Avatar>
-              <div className="overflow-hidden">
-                <p className="text-base font-medium truncate">{profile.displayName || "Anonymous"}</p>
-                <p className="text-sm text-muted-foreground truncate dark:text-nostr-muted">{profile.npub?.slice(0, 10)}...</p>
+        {/* Navigation Links */}
+        <div className="space-y-1 mb-6">
+          {navItems.map((item) => (
+            <Link
+              key={item.label}
+              to={item.href}
+              className={`flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors dark:hover:bg-white/5 ${
+                location.pathname === item.href 
+                  ? "bg-muted dark:bg-white/10 text-nostr-blue dark:text-white" 
+                  : "hover:bg-muted"
+              }`}
+            >
+              {item.icon}
+              <span className="ml-3">{item.label}</span>
+            </Link>
+          ))}
+        </div>
+        
+        {/* User Profile moved to the bottom */}
+        <div className="mt-auto">
+          {isAuthenticated && profile ? (
+            <div className="flex flex-col space-y-3">
+              <div className="flex items-center space-x-3">
+                <Avatar>
+                  <AvatarImage src={profile.picture} alt={profile.displayName || "User"} />
+                  <AvatarFallback>{profile.displayName?.charAt(0) || "U"}</AvatarFallback>
+                </Avatar>
+                <div className="overflow-hidden">
+                  <p className="text-base font-medium truncate">{profile.displayName || "Anonymous"}</p>
+                  <p className="text-sm text-muted-foreground truncate dark:text-nostr-muted">{profile.npub?.slice(0, 10)}...</p>
+                </div>
               </div>
+              
+              <Button 
+                variant="outline" 
+                className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base"
+                onClick={handleConnectWallet}
+              >
+                {isAuthenticated ? "Disconnect Wallet" : "Connect Wallet"}
+              </Button>
             </div>
-            
+          ) : (
             <Button 
               variant="outline" 
-              className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base"
+              className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base" 
               onClick={handleConnectWallet}
             >
-              {isAuthenticated ? "Disconnect Wallet" : "Connect Wallet"}
+              Connect Wallet
             </Button>
-          </div>
-        ) : (
-          <Button 
-            variant="outline" 
-            className="w-full dark:border-white/20 dark:bg-transparent dark:hover:bg-white/5 text-base" 
-            onClick={handleConnectWallet}
-          >
-            Connect Wallet
-          </Button>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Login Dialog */}
+      <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect to NOSTR</DialogTitle>
+            <DialogDescription>
+              Sign in to access all features
+            </DialogDescription>
+          </DialogHeader>
+          <LoginForm onSuccess={() => setIsLoginDialogOpen(false)} />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
