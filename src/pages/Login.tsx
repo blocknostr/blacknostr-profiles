@@ -24,9 +24,9 @@ export default function Login() {
       {/* Content */}
       <div className="w-full max-w-md space-y-8 z-10">
         <div className="text-center">
-          <h1 className="text-5xl font-bold tracking-tight text-gradient animate-fade-in">NOSTR App</h1>
+          <h1 className="text-5xl font-bold tracking-tight text-gradient animate-fade-in">BlockNostr</h1>
           <p className="mt-2 text-muted-foreground">
-            Connect to the decentralized social network
+            Profiles
           </p>
         </div>
         
