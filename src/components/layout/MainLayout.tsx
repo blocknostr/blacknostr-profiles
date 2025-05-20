@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import Sidebar from "./Sidebar";
+import RightSidebar from "./RightSidebar";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 
@@ -28,12 +29,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <div className="flex w-full">
         {/* Left Sidebar - hidden on mobile unless toggled */}
         <div className={`
-          md:relative fixed top-0 left-0 h-screen z-20 w-64
+          md:relative fixed top-0 left-0 h-screen z-20 w-80
           transform transition-transform duration-300 ease-in-out
           ${leftSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         `}>
           {/* Fixed width sidebar */}
-          <div className="h-full w-64">
+          <div className="h-full w-80">
             <Sidebar />
           </div>
         </div>
@@ -41,6 +42,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* Main content - scrollable with invisible scrollbar */}
         <div className="flex-grow max-w-3xl mx-auto px-4 py-6 md:px-6 h-screen overflow-y-auto scrollbar-hide">
           {children}
+        </div>
+
+        {/* Right sidebar - always hidden on mobile */}
+        <div className="hidden lg:block w-80">
+          <RightSidebar />
         </div>
       </div>
 

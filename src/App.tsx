@@ -7,11 +7,11 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { NostrProvider } from "@/contexts/NostrContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 
+import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
-import Notes from "./pages/Notes";
 
 // Create a client
 const queryClient = new QueryClient();
@@ -27,9 +27,9 @@ const App = () => {
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/settings" element={<Settings />} />
-                <Route path="/notes" element={<Notes />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

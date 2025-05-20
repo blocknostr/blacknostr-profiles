@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNostr } from "@/contexts/NostrContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,17 +8,22 @@ import { toast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wallet, Key, UserPlus } from "lucide-react";
 import { hexToNpub, npubToHex } from "@/lib/nostr";
+import { useNavigate } from "react-router-dom";
 
-interface LoginFormProps {
-  onSuccess?: () => void;
-}
-
-export function LoginForm({ onSuccess }: LoginFormProps) {
+export function LoginForm() {
   const { login, createAccount, loginWithPrivateKey, isAuthenticated } = useNostr();
   const [isLoading, setIsLoading] = useState(false);
   const [nsec, setNsec] = useState('');
   const [selectedTab, setSelectedTab] = useState('extension');
+  const navigate = useNavigate();
   
+  // Redirect to profile page if authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/profile');
+    }
+  }, [isAuthenticated, navigate]);
+
   const handleExtensionLogin = () => {
     setIsLoading(true);
     try {
@@ -31,7 +36,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               title: 'Logged in with extension',
               description: 'Successfully logged in with your NOSTR extension',
             });
-            if (onSuccess) onSuccess();
+            navigate('/profile');
           } else {
             throw new Error('No public key found in extension');
           }
@@ -72,7 +77,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         title: 'Guest account created',
         description: 'You are now logged in as a guest user',
       });
-      if (onSuccess) onSuccess();
+      navigate('/profile');
     } catch (error) {
       console.error('Error creating guest account:', error);
       toast({
@@ -117,7 +122,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
       loginWithPrivateKey(privateKey);
       setNsec('');
-      if (onSuccess) onSuccess();
+      navigate('/profile');
     } catch (error) {
       console.error('Manual login error:', error);
       toast({
@@ -131,8 +136,14 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   };
 
   return (
-    <Card className="w-full">
-      <CardContent className="space-y-4 pt-6">
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle className="text-2xl">Welcome to NOSTR App</CardTitle>
+        <CardDescription>
+          Connect with the decentralized social network
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
         <Tabs defaultValue="extension" onValueChange={setSelectedTab}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="extension" className="flex items-center justify-center gap-2">
