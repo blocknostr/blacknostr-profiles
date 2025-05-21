@@ -12,6 +12,8 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
+import Notes from "./pages/Notes";
+import Feed from "./pages/Feed"; // Import the new Feed component
 
 // Create a client
 const queryClient = new QueryClient();
@@ -30,6 +32,8 @@ const App = () => {
                 <Route path="/login" element={<Login />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/notes" element={<Notes />} />
+                <Route path="/feed" element={<Feed />} /> {/* Add the Feed route */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
