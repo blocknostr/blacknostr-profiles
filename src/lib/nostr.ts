@@ -13,21 +13,6 @@ export type NostrProfile = {
   website?: string;
   nip05?: string;
   lud16?: string; // Lightning address
-  // Cryptocurrency fields
-  coingeckoUrl?: string;
-  marketCap?: string;
-  fullyDilutedValuation?: string;
-  tradingVolume24h?: string;
-  circulatingSupply?: string;
-  totalSupply?: string;
-  maxSupply?: string;
-  contact?: string;
-  explorers?: string[];
-  communities?: string[];
-  sourceCode?: string;
-  apiId?: string;
-  chains?: string[];
-  categories?: string[];
 };
 
 export type NostrMetadata = {
@@ -39,21 +24,6 @@ export type NostrMetadata = {
   website?: string;
   nip05?: string;
   lud16?: string;
-  // Cryptocurrency fields
-  coingecko_url?: string;
-  market_cap?: string;
-  fully_diluted_valuation?: string;
-  trading_volume_24h?: string;
-  circulating_supply?: string;
-  total_supply?: string;
-  max_supply?: string;
-  contact?: string;
-  explorers?: string[];
-  communities?: string[];
-  source_code?: string;
-  api_id?: string;
-  chains?: string[];
-  categories?: string[];
 };
 
 export type NostrNote = {
@@ -212,21 +182,6 @@ export const parseProfile = (event: NostrEvent): NostrProfile => {
       website: content.website || '',
       nip05: content.nip05 || '',
       lud16: content.lud16 || '',
-      // Parse cryptocurrency fields
-      coingeckoUrl: content.coingecko_url || '',
-      marketCap: content.market_cap || '',
-      fullyDilutedValuation: content.fully_diluted_valuation || '',
-      tradingVolume24h: content.trading_volume_24h || '',
-      circulatingSupply: content.circulating_supply || '',
-      totalSupply: content.total_supply || '',
-      maxSupply: content.max_supply || '',
-      contact: content.contact || '',
-      explorers: content.explorers || [],
-      communities: content.communities || [],
-      sourceCode: content.source_code || '',
-      apiId: content.api_id || '',
-      chains: content.chains || [],
-      categories: content.categories || [],
     };
   } catch (e) {
     console.error('Error parsing profile:', e);
@@ -248,21 +203,6 @@ export const profileToMetadata = (profile: NostrProfile): NostrMetadata => {
     website: profile.website,
     nip05: profile.nip05,
     lud16: profile.lud16,
-    // Convert cryptocurrency fields to snake_case
-    coingecko_url: profile.coingeckoUrl,
-    market_cap: profile.marketCap,
-    fully_diluted_valuation: profile.fullyDilutedValuation,
-    trading_volume_24h: profile.tradingVolume24h,
-    circulating_supply: profile.circulatingSupply,
-    total_supply: profile.totalSupply,
-    max_supply: profile.maxSupply,
-    contact: profile.contact,
-    explorers: profile.explorers,
-    communities: profile.communities,
-    source_code: profile.sourceCode,
-    api_id: profile.apiId,
-    chains: profile.chains,
-    categories: profile.categories,
   };
 };
 

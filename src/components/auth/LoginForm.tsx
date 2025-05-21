@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wallet, Key, UserPlus } from "lucide-react";
-import { npubToHex } from "@/lib/nostr";
+import { hexToNpub, npubToHex } from "@/lib/nostr";
 import { useNavigate } from "react-router-dom";
 
 export function LoginForm() {
@@ -136,16 +136,16 @@ export function LoginForm() {
   };
 
   return (
-    <Card className="w-full bg-background/60 backdrop-blur-lg border-white/10 shadow-lg">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl text-center">Welcome</CardTitle>
-        <CardDescription className="text-center">
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle className="text-2xl">Welcome to NOSTR App</CardTitle>
+        <CardDescription>
           Connect with the decentralized social network
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Tabs defaultValue="extension" onValueChange={setSelectedTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+        <Tabs defaultValue="extension" onValueChange={setSelectedTab}>
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="extension" className="flex items-center justify-center gap-2">
               <Wallet className="h-4 w-4" />
               <span className="hidden sm:inline">Extension</span>
@@ -160,40 +160,38 @@ export function LoginForm() {
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="extension" className="space-y-4">
-            <div className="text-sm text-muted-foreground mb-6 text-center">
+          <TabsContent value="extension" className="space-y-4 pt-4">
+            <div className="text-sm text-muted-foreground mb-6">
               <p>Connect using your NOSTR browser extension</p>
               <p className="mt-2 text-xs">Supported: nos2x, Alby, Flamingo, etc.</p>
             </div>
             <Button 
-              className="w-full transition-all hover:scale-105"
+              className="w-full"
               onClick={handleExtensionLogin}
               disabled={isLoading}
-              variant="default"
             >
               <Wallet className="mr-2 h-4 w-4" />
               Connect Extension
             </Button>
           </TabsContent>
           
-          <TabsContent value="guest" className="space-y-4">
-            <div className="text-sm text-muted-foreground mb-6 text-center">
+          <TabsContent value="guest" className="space-y-4 pt-4">
+            <div className="text-sm text-muted-foreground mb-6">
               <p>Create a temporary guest account</p>
               <p className="mt-2 text-xs">Your keys will be saved in this browser</p>
             </div>
             <Button 
               onClick={handleGuestLogin}
               disabled={isLoading}
-              className="w-full transition-all hover:scale-105"
-              variant="default"
+              className="w-full"
             >
               <UserPlus className="mr-2 h-4 w-4" />
               Create Guest Account
             </Button>
           </TabsContent>
           
-          <TabsContent value="manual" className="space-y-4">
-            <div className="text-sm text-muted-foreground mb-4 text-center">
+          <TabsContent value="manual" className="space-y-4 pt-4">
+            <div className="text-sm text-muted-foreground mb-4">
               <p>Sign in with your private key (nsec)</p>
               <p className="mt-2 text-xs">Your key never leaves this device</p>
             </div>
@@ -203,13 +201,11 @@ export function LoginForm() {
                 placeholder="Enter your nsec private key"
                 value={nsec}
                 onChange={(e) => setNsec(e.target.value)}
-                className="bg-background/80 border-white/20"
               />
               <Button 
                 onClick={handleManualLogin}
                 disabled={isLoading || !nsec}
-                className="w-full transition-all hover:scale-105"
-                variant="default"
+                className="w-full"
               >
                 <Key className="mr-2 h-4 w-4" />
                 Sign In
@@ -218,7 +214,7 @@ export function LoginForm() {
           </TabsContent>
         </Tabs>
       </CardContent>
-      <CardFooter className="flex flex-col space-y-4 pt-0">
+      <CardFooter className="flex flex-col space-y-4">
         <div className="text-xs text-muted-foreground text-center">
           <p>By logging in or creating an account, you agree to the</p>
           <p>terms of service and privacy policy</p>
