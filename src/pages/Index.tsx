@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useNostr } from "@/contexts/NostrContext";
 import NoteFeed from "@/components/feed/NoteFeed";
 import MainLayout from "@/components/layout/MainLayout";
+import CreateNote from "@/components/feed/CreateNote";
 
 const Index = () => {
   const { isAuthenticated } = useNostr();
@@ -13,7 +14,10 @@ const Index = () => {
   
   return (
     <MainLayout>
-      <NoteFeed />
+      <div className="space-y-4">
+        <CreateNote />
+        <NoteFeed />
+      </div>
     </MainLayout>
   );
 };
