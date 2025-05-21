@@ -1,24 +1,24 @@
 
 import { Navigate } from "react-router-dom";
 import { useNostr } from "@/contexts/NostrContext";
+import SimpleMainLayout from "@/components/layout/SimpleMainLayout";
 import NoteFeed from "@/components/feed/NoteFeed";
-import MainLayout from "@/components/layout/MainLayout";
-import CreateNote from "@/components/feed/CreateNote";
 
 const Index = () => {
-  const { isAuthenticated } = useNostr();
+  const { isAuthenticated, publicKey } = useNostr();
   
+  // If not authenticated, redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
-  
+
   return (
-    <MainLayout>
+    <SimpleMainLayout>
       <div className="space-y-4">
-        <CreateNote />
-        <NoteFeed />
+        <h1 className="text-2xl font-bold">Latest Notes</h1>
+        {publicKey && <NoteFeed />}
       </div>
-    </MainLayout>
+    </SimpleMainLayout>
   );
 };
 

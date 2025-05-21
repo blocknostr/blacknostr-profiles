@@ -6,13 +6,13 @@ import { Search } from "lucide-react";
 
 export default function RightSidebar() {
   return (
-    <div className="p-4 h-full">
+    <div className="h-screen w-80 p-4 border-l border-border dark:bg-nostr-dark dark:border-white/10 fixed overflow-y-auto">
       {/* Search */}
       <div className="relative mb-6">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search NOSTR..."
-          className="pl-8 dark:bg-black/20 dark:border-white/20"
+          className="pl-8 dark:bg-black dark:border-white/20"
         />
       </div>
 

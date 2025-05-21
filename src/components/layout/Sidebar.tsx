@@ -14,8 +14,7 @@ import {
   User, 
   Settings,
   PenSquare,
-  Users,
-  Rss
+  Users
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
@@ -28,7 +27,6 @@ export default function Sidebar() {
   
   const navItems = [
     { icon: <Home className="h-5 w-5" />, label: "Home", href: "/" },
-    { icon: <Rss className="h-5 w-5" />, label: "Feed", href: "/feed" },
     { icon: <Wallet className="h-5 w-5" />, label: "Wallets", href: "/wallets" },
     { icon: <Bell className="h-5 w-5" />, label: "Notifications", href: "/notifications" },
     { icon: <MessageSquare className="h-5 w-5" />, label: "Messages", href: "/messages" },
