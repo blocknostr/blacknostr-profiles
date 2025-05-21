@@ -6,6 +6,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import CreateNote from "@/components/feed/CreateNote";
 import { Rss, Clock, Hash, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Navigate } from "react-router-dom";
 
 // NIP-01: Basic protocol flow and event kinds
 // NIP-08: Mentions of events, public keys, and hashtags
